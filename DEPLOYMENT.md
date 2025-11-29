@@ -283,7 +283,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 ```powershell
 # Access PostgreSQL
-docker exec -it diksuchi-postgres psql -U postgres -d drdo
+docker exec -it diksuchi-postgres psql -U postgres -d diksuchi
 
 # Run vacuum (maintenance)
 VACUUM ANALYZE;
@@ -298,7 +298,7 @@ VACUUM ANALYZE;
 mkdir backups
 
 # Backup database
-docker exec diksuchi-postgres pg_dump -U postgres drdo > backups\database-$(Get-Date -Format "yyyy-MM-dd").sql
+docker exec diksuchi-postgres pg_dump -U postgres diksuchi > backups\database-$(Get-Date -Format "yyyy-MM-dd").sql
 
 # Backup uploads
 docker cp diksuchi-app:/app/uploads backups\uploads
@@ -308,7 +308,7 @@ docker cp diksuchi-app:/app/uploads backups\uploads
 
 ```powershell
 # Restore database
-Get-Content backups\database-2024-01-01.sql | docker exec -i diksuchi-postgres psql -U postgres -d drdo
+Get-Content backups\database-2024-01-01.sql | docker exec -i diksuchi-postgres psql -U postgres -d diksuchi
 
 # Restore uploads
 docker cp backups\uploads diksuchi-app:/app/uploads
@@ -321,7 +321,7 @@ docker cp backups\uploads diksuchi-app:/app/uploads
 1. **Change Default Passwords:**
    ```env
    # In .env file
-   DATABASE_URL=postgresql://postgres:STRONG_PASSWORD@postgres:5432/drdo
+   DATABASE_URL=postgresql://postgres:STRONG_PASSWORD@postgres:5432/diksuchi
    BETTER_AUTH_SECRET=generated-64-character-secret
    INTERNAL_API_SECRET=generated-64-character-secret
    ```

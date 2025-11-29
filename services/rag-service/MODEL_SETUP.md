@@ -227,7 +227,7 @@ Expected output:
 **Recommended for you:**
 ```bash
 # 1. Download model locally
-cd /Users/srikaryaganti/workspaces/drdo/frontend/python-worker
+cd /Users/srikaryaganti/workspaces/drdo/diksuchi-ai/services/rag-service
 ./download-model.sh
 
 # 2. Verify in docker-compose.yml (already configured)
