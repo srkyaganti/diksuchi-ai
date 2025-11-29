@@ -1,0 +1,210 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider      = "prisma-client"
+  output        = "../src/generated/prisma"
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Collection model for organizing files
+
+model Collection {
+  id           String        @id @default(cuid())
+  name         String
+  description  String?
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  files        File[]
+  chatSessions ChatSession[]
+
+  @@map("collections")
+  @@index([userId])
+}
+
+// File model for uploaded documents
+
+model File {
+  id           String     @id @default(cuid())
+  name         String // Original filename
+  uuid         String     @unique // UUID for storage
+  fileSize     BigInt // File size in bytes
+  mimeType     String // e.g., application/pdf
+  status       String     @default("pending") // pending, processing, completed, failed
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  uploadedAt   DateTime   @default(now())
+  processedAt  DateTime?
+  ragStatus    String?    @default("none") // none, processing, completed, failed
+  ragError     String?    @db.Text // Error message if processing failed
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("files")
+  @@index([collectionId])
+  @@index([status])
+  @@index([ragStatus])
+}
+
+// Chat session model for grouping conversations
+
+model ChatSession {
+  id           String        @id @default(cuid())
+  collectionId String
+  collection   Collection    @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String? // Auto-generated title from first message
+  messages     ChatMessage[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("chat_sessions")
+  @@index([collectionId])
+  @@index([userId])
+}
+
+// Chat message model for storing individual messages
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String // "user" or "assistant"
+  content   String      @db.Text
+  sources   String[] // Array of fileIds used for context
+  createdAt DateTime    @default(now())
+
+  @@map("chat_messages")
+  @@index([sessionId])
+}
+
+model User {
+  id                 String        @id
+  name               String
+  email              String
+  emailVerified      Boolean       @default(false)
+  image              String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  role               String?
+  banned             Boolean?      @default(false)
+  banReason          String?
+  banExpires         DateTime?
+  isSuperAdmin       Boolean       @default(false)
+  mustChangePassword Boolean       @default(false)
+  sessions           Session[]
+  accounts           Account[]
+  members            Member[]
+  invitations        Invitation[]
+  collections        Collection[]
+  chatSessions       ChatSession[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id                   String   @id
+  expiresAt            DateTime
+  token                String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  ipAddress            String?
+  userAgent            String?
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrganizationId String?
+  impersonatedBy       String?
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Organization {
+  id          String       @id
+  name        String
+  slug        String
+  logo        String?
+  createdAt   DateTime
+  metadata    String?
+  members     Member[]
+  invitations Invitation[]
+
+  @@unique([slug])
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("member")
+  createdAt      DateTime
+
+  @@index([organizationId])
+  @@index([userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String       @default("pending")
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitation")
+}
