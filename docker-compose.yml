@@ -1,0 +1,226 @@
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16
+    container_name: diksuchi-postgres
+    environment:
+      POSTGRES_DB: drdo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./services/web/docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis for job queue
+  redis:
+    image: redis:8.4.0-alpine
+    container_name: diksuchi-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ChromaDB Vector Database
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: diksuchi-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/8000' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # Next.js Web Application
+  app:
+    build:
+      context: ./services/web
+      dockerfile: Dockerfile
+      target: runner-app
+    container_name: diksuchi-app
+    ports:
+      - "3000:3000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/drdo
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # RAG Service (updated from python-worker)
+      PYTHON_WORKER_URL: http://rag-service:5000
+      PYTHON_RETRIEVAL_URL: http://rag-service:5000
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-changeme-in-production}
+
+      # Audio Services
+      STT_SERVICE_URL: http://stt-service:8001
+      TTS_SERVICE_URL: http://tts-service:8002
+      WHISPER_API_URL: ${WHISPER_API_URL:-http://host.docker.internal:8080}
+
+      # LM Studio (running on host machine)
+      LM_STUDIO_BASE_URL: http://host.docker.internal:1234/v1
+      LLM_MODEL: ${LLM_MODEL:-krutrim-ai-labs_krutrim-2-instruct}
+
+      # Ollama (running on host machine)
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+      rag-service:
+        condition: service_healthy
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # RAG Service (renamed from python-worker)
+  rag-service:
+    build:
+      context: ./services/rag-service
+      dockerfile: Dockerfile
+    container_name: diksuchi-rag-service
+    ports:
+      - "5001:5000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/drdo
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # ChromaDB
+      CHROMADB_HOST: chromadb
+      CHROMADB_PORT: 8000
+
+      # Ollama (running on host machine)
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+
+      # Next.js callback URL
+      NEXTJS_CALLBACK_URL: http://app:3000
+      NEXTJS_API_SECRET: ${INTERNAL_API_SECRET:-changeme-in-production}
+
+      # Model paths
+      EMBEDDING_MODEL_PATH: models/bge-m3.gguf
+
+      # LlamaParse (optional)
+      LLAMAPARSE_API_KEY: ${LLAMAPARSE_API_KEY:-}
+    volumes:
+      - uploads:/app/uploads
+      # Use local models directory (recommended for development)
+      - ./services/rag-service/models:/app/models
+      # Shared data volumes
+      - chromadb_data:/app/data/chroma_db
+      - bm25_index:/app/data/bm25_index
+      - graph_data:/app/data/graphs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: >
+      sh -c "
+      echo 'Starting RAG Service...' &&
+      uvicorn main:app --host 0.0.0.0 --port 5000 &
+      echo 'Starting RQ Worker...' &&
+      python worker.py
+      "
+
+  # STT Service (Speech-to-Text)
+  stt-service:
+    build:
+      context: ./services/stt-service
+      dockerfile: Dockerfile
+    container_name: diksuchi-stt-service
+    ports:
+      - "8001:8001"
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-openai/whisper-large-v3}
+      HF_TOKEN: ${HF_TOKEN:-}
+      MAX_AUDIO_SIZE_MB: ${STT_MAX_AUDIO_SIZE_MB:-25}
+      API_PORT: 8001
+    volumes:
+      - ./models/whisper:/app/models
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # TTS Service (Text-to-Speech)
+  tts-service:
+    build:
+      context: ./services/tts-service
+      dockerfile: Dockerfile
+    container_name: diksuchi-tts-service
+    ports:
+      - "8002:8002"
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      API_PORT: 8002
+    volumes:
+      - ./models/parler:/app/models
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:
+  chromadb_data:
+  bm25_index:
+  graph_data:
