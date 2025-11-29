@@ -122,7 +122,7 @@ Expected response:
 ```json
 {
   "status": "healthy",
-  "service": "drdo-rag-worker",
+  "service": "diksuchi-rag-service",
   "redis": "connected",
   "embedding_model": "models/bge-m3.gguf"
 }

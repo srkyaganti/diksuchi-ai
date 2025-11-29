@@ -4,7 +4,7 @@ services:
     image: postgres:16
     container_name: diksuchi-postgres
     environment:
-      POSTGRES_DB: drdo
+      POSTGRES_DB: diksuchi
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
@@ -64,7 +64,7 @@ services:
       - "3000:3000"
     environment:
       # Database
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/drdo
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/diksuchi
 
       # Redis
       REDIS_HOST: redis
@@ -111,7 +111,7 @@ services:
       - "5001:5000"
     environment:
       # Database
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/drdo
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/diksuchi
 
       # Redis
       REDIS_HOST: redis
