@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 
 const STT_SERVICE_URL = process.env.STT_SERVICE_URL || "http://localhost:8001";

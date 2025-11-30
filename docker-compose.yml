@@ -80,9 +80,9 @@ services:
       TTS_SERVICE_URL: http://tts-service:8002
       WHISPER_API_URL: ${WHISPER_API_URL:-http://host.docker.internal:8080}
 
-      # LM Studio (running on host machine)
-      LM_STUDIO_BASE_URL: http://host.docker.internal:1234/v1
-      LLM_MODEL: ${LLM_MODEL:-krutrim-ai-labs_krutrim-2-instruct}
+      # LLM Service (unified inference)
+      LLM_SERVICE_BASE_URL: http://llm-service:8003/v1
+      LLM_MODEL: ${LLM_MODEL:-llama-3.2-3b-instruct}
 
       # Ollama (running on host machine)
       OLLAMA_BASE_URL: http://host.docker.internal:11434
@@ -96,6 +96,8 @@ services:
       chromadb:
         condition: service_healthy
       rag-service:
+        condition: service_healthy
+      llm-service:
         condition: service_healthy
     restart: unless-stopped
     extra_hosts:
@@ -215,6 +217,38 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    restart: unless-stopped
+
+  # LLM Service (Unified Inference)
+  llm-service:
+    build:
+      context: ./services/llm-service
+      dockerfile: Dockerfile
+    container_name: diksuchi-llm-service
+    ports:
+      - "8003:8003"
+    environment:
+      MODEL_PATH: ${MODEL_PATH:-/app/models/Llama-3.2-3B-Instruct-Q4_K_M.gguf}
+      N_GPU_LAYERS: ${N_GPU_LAYERS:-99}
+      CHAT_FORMAT: ${CHAT_FORMAT:-llama-3}
+      API_PORT: 8003
+    volumes:
+      - ./models/llm:/app/models
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
     restart: unless-stopped
 
 volumes:
