@@ -60,18 +60,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Debug: Check if LM Studio is configured
-    const lmStudioUrl = process.env.LM_STUDIO_BASE_URL || "http://localhost:1234/v1";
-    const modelName = process.env.LLM_MODEL || "llama-2-7b-chat";
-    console.log("🤖 LM Studio Configuration:", {
-      baseURL: lmStudioUrl,
+    // Initialize Diksuchi LLM Service provider (OpenAI-compatible)
+    const llmServiceUrl = process.env.LLM_SERVICE_BASE_URL || "http://llm-service:8003/v1";
+    const modelName = process.env.LLM_MODEL || "llama-3.2-3b-instruct";
+    console.log("🤖 LLM Service Configuration:", {
+      baseURL: llmServiceUrl,
       model: modelName,
     });
 
-    // Initialize LM Studio provider
-    const lmstudio = createOpenAICompatible({
-      name: "lmstudio",
-      baseURL: lmStudioUrl,
+    // Initialize LLM Service provider
+    const llmService = createOpenAICompatible({
+      name: "llm-service",
+      baseURL: llmServiceUrl,
     });
 
     const { messages, collectionId, sessionId } =
@@ -217,9 +217,9 @@ export async function POST(request: NextRequest) {
     // Convert UI messages to model messages format
     const modelMessages = convertToModelMessages(messages);
 
-    // Use AI SDK streamText with LM Studio
+    // Use AI SDK streamText with Diksuchi LLM Service
     const result = streamText({
-      model: lmstudio(modelName),
+      model: llmService(modelName),
       system: systemMessage.content,
       messages: modelMessages,
       temperature: 0.7,
