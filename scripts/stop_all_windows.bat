@@ -15,9 +15,6 @@ taskkill /FI "WINDOWTITLE eq Web-App*" /F >nul 2>&1
 echo Stopping TTS Service...
 taskkill /FI "WINDOWTITLE eq TTS-Service*" /F >nul 2>&1
 
-echo Stopping STT Service...
-taskkill /FI "WINDOWTITLE eq STT-Service*" /F >nul 2>&1
-
 echo Stopping RAG Service...
 taskkill /FI "WINDOWTITLE eq RAG-Service*" /F >nul 2>&1
 taskkill /FI "WINDOWTITLE eq RAG-API*" /F >nul 2>&1

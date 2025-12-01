@@ -24,22 +24,17 @@ start "ChromaDB" /MIN cmd /c "scripts\start_chromadb_windows.bat > logs\chromadb
 timeout /t 5 /nobreak >nul
 
 REM 4. Start RAG Service
-echo [4/7] Starting RAG Service...
+echo [4/6] Starting RAG Service...
 start "RAG-Service" /MIN cmd /c "cd services\rag-service && start_rag_windows.bat > ..\..\logs\rag-service.log 2>&1"
 timeout /t 5 /nobreak >nul
 
-REM 5. Start STT Service
-echo [5/7] Starting STT Service...
-start "STT-Service" /MIN cmd /c "cd services\stt-service && start_stt_windows.bat > ..\..\logs\stt-service.log 2>&1"
-timeout /t 10 /nobreak >nul
-
-REM 6. Start TTS Service
-echo [6/7] Starting TTS Service...
+REM 5. Start TTS Service
+echo [5/6] Starting TTS Service...
 start "TTS-Service" /MIN cmd /c "cd services\tts-service && start_tts_windows.bat > ..\..\logs\tts-service.log 2>&1"
 timeout /t 5 /nobreak >nul
 
-REM 7. Start Next.js Web App
-echo [7/7] Starting Next.js Web App...
+REM 6. Start Next.js Web App
+echo [6/6] Starting Next.js Web App...
 start "Web-App" /MIN cmd /c "cd services\web && pnpm dev > ..\..\logs\web-app.log 2>&1"
 timeout /t 5 /nobreak >nul
 
@@ -51,10 +46,11 @@ echo Service URLs:
 echo   Web App:     http://localhost:3000
 echo   ChromaDB:    http://localhost:8000
 echo   RAG:         http://localhost:5001
-echo   STT:         http://localhost:8001
 echo   TTS:         http://localhost:8002
 echo.
-echo Note: Using LM Studio for LLM inference (localhost:1234)
+echo External Services (manage separately):
+echo   LM Studio:   http://localhost:1234 (LLM inference)
+echo   whisper.cpp: http://localhost:8080 (Speech-to-Text)
 echo.
 echo Commands:
 echo   Stop all:    scripts\stop_all_windows.bat

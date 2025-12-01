@@ -148,7 +148,7 @@ Write-Host "[7/7] Verifying installation..." -ForegroundColor Green
 $services = @{
     "Web App" = "http://localhost:3000"
     "RAG Service" = "http://localhost:5001/health"
-    "STT Service" = "http://localhost:8001/health"
+    "STT Service (whisper.cpp)" = "http://localhost:8080/inference"
     "TTS Service" = "http://localhost:8002/health"
 }
 
@@ -171,8 +171,11 @@ Write-Host ""
 Write-Host "Services are accessible at:" -ForegroundColor White
 Write-Host "  Web Application : http://localhost:3000" -ForegroundColor Cyan
 Write-Host "  RAG Service     : http://localhost:5001" -ForegroundColor Cyan
-Write-Host "  STT Service     : http://localhost:8001" -ForegroundColor Cyan
 Write-Host "  TTS Service     : http://localhost:8002" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "External Services (manage separately):" -ForegroundColor White
+Write-Host "  STT (whisper.cpp): http://localhost:8080" -ForegroundColor Cyan
+Write-Host "  LLM (LM Studio) : http://localhost:1234" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Useful commands:" -ForegroundColor White
 Write-Host "  View logs       : docker-compose logs -f" -ForegroundColor Gray

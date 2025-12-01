@@ -35,7 +35,6 @@ kill_by_pidfile() {
 # Stop services in reverse order
 kill_by_pidfile ".pids/web.pid" "Web App"
 kill_by_pidfile ".pids/tts.pid" "TTS Service"
-kill_by_pidfile ".pids/stt.pid" "STT Service"
 kill_by_pidfile ".pids/rag.pid" "RAG Service"
 kill_by_pidfile ".pids/chromadb.pid" "ChromaDB"
 

@@ -49,20 +49,21 @@ pnpm prisma migrate deploy
 **3. Download Models** (Manual)
 - **LLM**: Use LM Studio for local LLM inference (recommended)
 - **RAG**: BGE-M3 GGUF already at `services/rag-service/models/bge-m3.gguf` ✓
-- **STT**: Whisper Large-v3 (downloads automatically, ~6GB)
+- **STT**: Use whisper.cpp (run separately on port 8080)
 - **TTS**: ParlerTTS (downloads automatically, ~2-3GB)
 
 **4. Start Services**
 ```bash
-# Start LM Studio first (for LLM inference)
+# Start external services first:
+# - LM Studio (for LLM inference on port 1234)
+# - whisper.cpp (for STT on port 8080)
 
-# Then start all services at once
+# Then start all managed services
 ./scripts/start_all_macos.sh
 
 # Or start individually:
 ./scripts/start_chromadb_macos.sh
 ./services/rag-service/start_rag_macos.sh
-./services/stt-service/start_stt_macos.sh
 ./services/tts-service/start_tts_macos.sh
 ./services/web/start_web_macos.sh
 
@@ -100,9 +101,10 @@ pnpm prisma generate
 pnpm prisma migrate deploy
 ```
 
-**3. Download Models & LLM Setup**
+**3. Download Models & External Services**
 - **LLM**: Use LM Studio for local LLM inference (recommended)
-- Download RAG/STT/TTS models as needed
+- **STT**: Use whisper.cpp for speech-to-text (run on port 8080)
+- Download RAG/TTS models as needed
 
 **4. Start Services**
 ```batch
@@ -123,7 +125,6 @@ scripts\stop_all_windows.bat
 
 ### Service Startup Scripts
 - `services/rag-service/start_rag_macos.sh` / `start_rag_windows.bat`
-- `services/stt-service/start_stt_macos.sh` / `start_stt_windows.bat`
 - `services/tts-service/start_tts_macos.sh` / `start_tts_windows.bat`
 - `services/web/start_web_macos.sh` / `start_web_windows.bat`
 
@@ -135,12 +136,15 @@ scripts\stop_all_windows.bat
 
 ## Service URLs
 
+### Managed Services
 - **Web App**: http://localhost:3000
 - **ChromaDB**: http://localhost:8000
 - **RAG Service**: http://localhost:5001
-- **STT Service**: http://localhost:8001
 - **TTS Service**: http://localhost:8002
+
+### External Services (manage separately)
 - **LM Studio** (LLM): http://localhost:1234
+- **whisper.cpp** (STT): http://localhost:8080
 
 ## Configuration
 
@@ -186,15 +190,15 @@ See the detailed plan: `~/.claude/plans/clever-wishing-hammock.md`
 ```bash
 # Test each service endpoint
 curl http://localhost:5001/health  # RAG
-curl http://localhost:8001/health  # STT
 curl http://localhost:8002/health  # TTS
+curl http://localhost:8080/inference  # whisper.cpp (STT)
 curl http://localhost:1234/v1/models  # LM Studio
 curl http://localhost:3000  # Web App
 ```
 
 **Integrated Testing:**
-1. Start LM Studio with your preferred model
-2. Start all services
+1. Start external services (LM Studio + whisper.cpp)
+2. Start all managed services
 3. Run health check
 4. Open web app: http://localhost:3000
 5. Upload a document

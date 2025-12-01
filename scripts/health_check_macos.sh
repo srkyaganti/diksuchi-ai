@@ -45,9 +45,6 @@ check_service "ChromaDB    " "http://localhost:8000/api/v1/heartbeat"
 # Check RAG Service
 check_service "RAG Service " "http://localhost:5001/health"
 
-# Check STT Service
-check_service "STT Service " "http://localhost:8001/health"
-
 # Check TTS Service
 check_service "TTS Service " "http://localhost:8002/health"
 
@@ -60,9 +57,10 @@ echo ""
 echo "To view logs:"
 echo "  tail -f logs/chromadb.log"
 echo "  tail -f logs/rag-service.log"
-echo "  tail -f logs/stt-service.log"
 echo "  tail -f logs/tts-service.log"
 echo "  tail -f logs/web-app.log"
 echo ""
-echo "Note: LLM inference provided by LM Studio (localhost:1234)"
+echo "External Services (manage separately):"
+echo "  LM Studio:   localhost:1234 (LLM inference)"
+echo "  whisper.cpp: localhost:8080 (Speech-to-Text)"
 echo "=========================================="

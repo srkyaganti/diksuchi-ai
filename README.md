@@ -24,11 +24,11 @@ Diksuchi-AI is a comprehensive document intelligence platform that combines adva
   - Background job processing via Redis Queue
   - **Port:** 5001
 
-- **STT Service** (`services/stt-service/`) - Speech-to-Text
-  - Whisper Large-v3 transcription
+- **STT Service** (whisper.cpp) - Speech-to-Text
+  - Whisper.cpp native transcription
   - Multi-language support
   - Real-time audio processing
-  - **Port:** 8001
+  - **Port:** 8080 (managed separately)
 
 - **TTS Service** (`services/tts-service/`) - Text-to-Speech
   - ParlerTTS synthesis
@@ -74,7 +74,7 @@ open http://localhost:3000
 |---------|-----|---------|
 | Web Application | http://localhost:3000 | Main UI |
 | RAG Service API | http://localhost:5001 | Document processing |
-| STT Service | http://localhost:8001 | Speech-to-text |
+| STT Service (whisper.cpp) | http://localhost:8080 | Speech-to-text |
 | TTS Service | http://localhost:8002 | Text-to-speech |
 | ChromaDB | http://localhost:8000 | Vector database |
 | PostgreSQL | localhost:5432 | Database |
@@ -184,7 +184,7 @@ docker-compose ps
 # All services should show "healthy" status
 curl http://localhost:3000       # Web app
 curl http://localhost:5001/health # RAG service
-curl http://localhost:8001/health # STT service
+curl http://localhost:8080/inference # STT service (whisper.cpp)
 curl http://localhost:8002/health # TTS service
 ```
 
