@@ -1,2 +1,4 @@
--- Enable pgvector extension
-CREATE EXTENSION IF NOT EXISTS vector;
+-- PostgreSQL initialization script
+-- Note: pgvector extension is NOT needed anymore
+-- All vector operations are handled by ChromaDB
+-- This file is kept for reference but no longer executes any commands
