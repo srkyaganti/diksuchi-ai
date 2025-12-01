@@ -13,8 +13,8 @@ rq==1.16.1
 psycopg2-binary==2.9.9
 sqlalchemy==2.0.25
 
-# RAG & Vector Store (Nov 2025 - Latest stable, all pydantic 2.12 compatible)
-chromadb==0.4.22
+# RAG & Vector Store (Dec 2025 - Latest stable, all pydantic 2.12 compatible)
+chromadb==1.3.5
 langchain==1.1.0
 langchain-core==1.1.0
 langchain-community==0.4.1

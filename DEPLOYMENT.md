@@ -118,7 +118,7 @@ Open browser and navigate to:
 | STT Service | http://localhost:8001 | Speech-to-text |
 | TTS Service | http://localhost:8002 | Text-to-speech |
 | ChromaDB | http://localhost:8000 | Vector database |
-| PostgreSQL | localhost:5433 | Database (user: postgres, password: password) |
+| PostgreSQL | localhost:5432 | Database (user: postgres, password: password) |
 
 ## Common Operations
 
@@ -333,7 +333,7 @@ docker cp backups\uploads diksuchi-app:/app/uploads
 
 3. **Firewall Configuration:**
    - Only expose necessary ports (3000)
-   - Block direct access to 5001, 8001, 8002, 5433
+   - Block direct access to 5001, 8001, 8002, 5432
 
 4. **Regular Updates:**
    ```powershell

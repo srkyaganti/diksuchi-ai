@@ -146,8 +146,8 @@ async def load_model():
 
     # Detect device
     device = detect_device()
-    torch_dtype = torch.float16 if device != "cpu" else torch.float32
-    print(f"Torch dtype: {torch_dtype}")
+    dtype = torch.float16 if device != "cpu" else torch.float32
+    print(f"Torch dtype: {dtype}")
 
     # Authenticate with HuggingFace (if token provided)
     if HF_TOKEN:
@@ -160,7 +160,7 @@ async def load_model():
     print(f"Loading model from HuggingFace Hub...")
     model = AutoModelForSpeechSeq2Seq.from_pretrained(
         model_name,
-        torch_dtype=torch_dtype,
+        dtype=dtype,
         low_cpu_mem_usage=True,
         use_safetensors=True
     )
@@ -175,7 +175,7 @@ async def load_model():
         model=model,
         tokenizer=processor.tokenizer,
         feature_extractor=processor.feature_extractor,
-        torch_dtype=torch_dtype,
+        dtype=dtype,
         device=device,
     )
 
@@ -299,8 +299,14 @@ async def transcribe(
         print(f"Starting transcription (task={task}, timestamps={return_timestamps})...")
         start_time = time.time()
 
+        # Format audio for pipeline: dict with "sampling_rate" and "raw" keys
+        audio_input = {
+            "sampling_rate": 16000,
+            "raw": audio_array
+        }
+
         result = pipe(
-            audio_array,
+            audio_input,
             generate_kwargs=generate_kwargs,
             return_timestamps=timestamp_param
         )

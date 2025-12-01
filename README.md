@@ -38,9 +38,9 @@ Diksuchi-AI is a comprehensive document intelligence platform that combines adva
 
 ### Infrastructure
 
-- **PostgreSQL 16** - Primary database with pgvector extension
+- **PostgreSQL 16** - Primary database (relational data only)
 - **Redis 8.4** - Job queue and session management
-- **ChromaDB** - Vector database for semantic search
+- **ChromaDB** - Vector database for semantic search and embeddings
 
 ## Quick Start
 
@@ -77,7 +77,7 @@ open http://localhost:3000
 | STT Service | http://localhost:8001 | Speech-to-text |
 | TTS Service | http://localhost:8002 | Text-to-speech |
 | ChromaDB | http://localhost:8000 | Vector database |
-| PostgreSQL | localhost:5433 | Database |
+| PostgreSQL | localhost:5432 | Database |
 
 ## Features
 
