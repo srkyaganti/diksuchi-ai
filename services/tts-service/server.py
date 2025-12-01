@@ -254,3 +254,10 @@ async def get_language_info(language_code: str):
         "language": language_code,
         "speakers": LANGUAGE_SPEAKERS[language_code]
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+
+    port = int(os.environ.get("API_PORT", 8002))
+    uvicorn.run(app, host="0.0.0.0", port=port)

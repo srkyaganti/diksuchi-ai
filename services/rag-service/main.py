@@ -302,7 +302,7 @@ async def retrieve_context(request: RetrieveRequest):
 async def root():
     """Root endpoint with service information."""
     return {
-        "service": "DRDO RAG Worker",
+        "service": "Diksuchi AI RAG Worker",
         "version": "1.0.0",
         "endpoints": {
             "health": "/health",
