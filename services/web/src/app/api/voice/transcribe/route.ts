@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 
-const STT_SERVICE_URL = process.env.STT_SERVICE_URL || "http://localhost:8001";
+const STT_SERVICE_URL = process.env.STT_SERVICE_URL || "http://localhost:8080";
 
 /**
  * POST /api/voice/transcribe - Transcribe audio using local Whisper server
@@ -73,13 +73,15 @@ export async function POST(request: NextRequest) {
 
     // Map Whisper response to match ElevenLabs format
     // ElevenLabs uses language_code (e.g., "en"), Whisper uses full name (e.g., "english")
+    // whisper.cpp uses "language" field, Python service uses "detected_language"
     // Convert detected_language to ISO 639-1 code
+    const detectedLanguage = result.language || result.detected_language || "unknown";
     const languageCode = mapLanguageToCode(
-			(result.detected_language || "unknown").toLowerCase(),
+			detectedLanguage.toLowerCase(),
     );
 
     return NextResponse.json({
-      text: `${result.text}. Respond in ${result.detected_language}`,
+      text: `${result.text}. Respond in ${detectedLanguage}`,
       languageCode: languageCode,
       confidence: result.detected_language_probability || 0,
     });

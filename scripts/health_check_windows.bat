@@ -28,11 +28,6 @@ echo RAG Service:
 curl -s http://localhost:5001/health >nul 2>&1
 if errorlevel 1 (echo   X UNHEALTHY) else (echo   OK HEALTHY)
 
-REM Check STT Service
-echo STT Service:
-curl -s http://localhost:8001/health >nul 2>&1
-if errorlevel 1 (echo   X UNHEALTHY) else (echo   OK HEALTHY)
-
 REM Check TTS Service
 echo TTS Service:
 curl -s http://localhost:8002/health >nul 2>&1
@@ -49,10 +44,11 @@ echo.
 echo To view logs:
 echo   type logs\chromadb.log
 echo   type logs\rag-service.log
-echo   type logs\stt-service.log
 echo   type logs\tts-service.log
 echo   type logs\web-app.log
 echo.
-echo Note: LLM inference provided by LM Studio (localhost:1234)
+echo External Services (manage separately):
+echo   LM Studio:   localhost:1234 (LLM inference)
+echo   whisper.cpp: localhost:8080 (Speech-to-Text)
 echo ==========================================
 pause

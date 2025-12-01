@@ -115,7 +115,7 @@ Open browser and navigate to:
 |---------|-----|---------|
 | Web App | http://localhost:3000 | Main application |
 | RAG API | http://localhost:5001 | Document processing |
-| STT Service | http://localhost:8001 | Speech-to-text |
+| STT Service (whisper.cpp) | http://localhost:8080 | Speech-to-text |
 | TTS Service | http://localhost:8002 | Text-to-speech |
 | ChromaDB | http://localhost:8000 | Vector database |
 | PostgreSQL | localhost:5432 | Database (user: postgres, password: password) |
@@ -333,7 +333,7 @@ docker cp backups\uploads diksuchi-app:/app/uploads
 
 3. **Firewall Configuration:**
    - Only expose necessary ports (3000)
-   - Block direct access to 5001, 8001, 8002, 5432
+   - Block direct access to 5001, 8080, 8002, 5432
 
 4. **Regular Updates:**
    ```powershell
@@ -353,7 +353,7 @@ docker-compose ps
 # Test endpoints
 curl http://localhost:3000
 curl http://localhost:5001/health
-curl http://localhost:8001/health
+curl http://localhost:8080/inference # whisper.cpp
 curl http://localhost:8002/health
 ```
 
