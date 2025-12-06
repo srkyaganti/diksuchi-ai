@@ -102,7 +102,7 @@ docker-compose up -d postgres redis chromadb
 ### Start FastAPI Service
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 5000 --reload
+python main.py
 ```
 
 ### Start RQ Worker
@@ -115,7 +115,7 @@ python worker.py
 ### Verify Service
 
 ```bash
-curl http://localhost:5000/health
+curl http://localhost:5001/health
 ```
 
 Expected response:
@@ -322,7 +322,7 @@ Adjust RQ worker concurrency in docker-compose.yml:
 ```yaml
 command: >
   sh -c "
-  uvicorn main:app --host 0.0.0.0 --port 5000 &
+  python3 main.py &
   rq worker --burst document-processing -w 4
   "
 ```

@@ -29,7 +29,7 @@ EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", "models/bge-m3.gguf")
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="DRDO RAG Worker API",
+    title="RAG Worker API",
     description="Document processing and hybrid retrieval service",
     version="1.0.0"
 )
@@ -318,7 +318,7 @@ async def root():
 async def startup_event():
     """Application startup tasks."""
     logger.info("=" * 50)
-    logger.info("DRDO RAG Worker API Starting...")
+    logger.info("RAG Worker API Starting...")
     logger.info(f"Redis: {REDIS_HOST}:{REDIS_PORT}")
     logger.info(f"Embedding Model: {EMBEDDING_MODEL_PATH}")
     logger.info(f"Callback URL: {NEXTJS_CALLBACK_URL}")
@@ -332,11 +332,11 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown tasks."""
-    logger.info("DRDO RAG Worker API shutting down...")
+    logger.info("RAG Worker API shutting down...")
     if redis_conn:
         redis_conn.close()
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=5001, log_level="info")

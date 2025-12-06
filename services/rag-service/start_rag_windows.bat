@@ -46,8 +46,8 @@ if not exist "models\bge-m3.gguf" (
 )
 
 REM Start uvicorn in background
-echo Starting RAG Service API on port 5000...
-start "RAG-API" /B uvicorn main:app --host 0.0.0.0 --port 5000
+echo Starting RAG Service API on port 5001...
+start "RAG-API" /B uvicorn main:app --host 0.0.0.0 --port 5001
 
 REM Wait for API to be ready
 timeout /t 5 /nobreak
