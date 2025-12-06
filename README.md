@@ -202,18 +202,38 @@ Key configuration options (see `.env.example` for complete list):
 - `LLM_MODEL` - Language model identifier
 - `HF_TOKEN` - Hugging Face token for model downloads
 
-### Database Migrations
+### Database Setup & Migrations
 
+**Initial Setup (Fresh Database):**
 ```bash
-# Create new migration
+cd services/web
+
+# 1. Create and apply migrations
+pnpm exec prisma migrate dev --name init
+
+# 2. Start the dev server (required for seed to work)
+pnpm dev
+
+# 3. In a new terminal, seed the super admin user
+pnpm seed
+```
+
+**Creating New Migrations:**
+```bash
+# Create new migration after schema changes
 pnpm exec prisma migrate dev --name migration_name
 
 # Apply migrations (production)
 pnpm exec prisma migrate deploy
 
-# Generate Prisma client
+# Generate Prisma client (after schema changes)
 pnpm exec prisma generate
 ```
+
+**Important Notes:**
+- The seed script requires the dev server to be running (it uses Better Auth API)
+- Default credentials: `admin@example.com` / `Admin123!`
+- Override with env vars: `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD`
 
 ## Troubleshooting
 
@@ -237,7 +257,11 @@ docker-compose up -d
 # Reset database (WARNING: deletes all data)
 docker-compose down -v
 docker-compose up -d postgres
+
+# Re-initialize database
+cd services/web
 pnpm exec prisma migrate deploy
+pnpm seed  # Don't forget to seed the super admin user!
 ```
 
 ### Model download issues

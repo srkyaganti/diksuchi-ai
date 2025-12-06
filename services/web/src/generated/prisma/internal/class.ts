@@ -23,7 +23,7 @@ const config: runtime.GetPrismaClientConfig = {
       "value": "prisma-client"
     },
     "output": {
-      "value": "/Users/srikaryaganti/workspaces/drdo/frontend/src/generated/prisma",
+      "value": "/Users/srikaryaganti/workspaces/drdo/diksuchi-ai/services/web/src/generated/prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -41,7 +41,7 @@ const config: runtime.GetPrismaClientConfig = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/srikaryaganti/workspaces/drdo/frontend/prisma/schema.prisma",
+    "sourceFilePath": "/Users/srikaryaganti/workspaces/drdo/diksuchi-ai/services/web/prisma/schema.prisma",
     "isCustomOutput": true
   },
   "relativePath": "../../../prisma",
@@ -51,7 +51,6 @@ const config: runtime.GetPrismaClientConfig = {
     "db"
   ],
   "activeProvider": "postgresql",
-  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {
