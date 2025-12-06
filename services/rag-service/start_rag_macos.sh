@@ -8,6 +8,12 @@ SERVICE_DIR="$PROJECT_ROOT/services/rag-service"
 
 cd "$SERVICE_DIR"
 
+REDIS_HOST="127.0.0.1"
+REDIS_PORT="6379"
+
+CHROMADB_HOST="127.0.0.1"
+CHROMADB_PORT="8000"
+
 # Load environment variables
 if [ -f "$PROJECT_ROOT/.env" ]; then
     set -a
@@ -18,7 +24,7 @@ fi
 # Activate virtual environment
 if [ ! -d "venv" ]; then
     echo "ERROR: Virtual environment not found. Please create it first:"
-    echo "  python3.11 -m venv venv"
+    echo "  python3 -m venv venv"
     echo "  source venv/bin/activate"
     echo "  pip install -r requirements.txt"
     exit 1
@@ -35,7 +41,7 @@ redis-cli -h $REDIS_HOST -p $REDIS_PORT ping > /dev/null 2>&1 || {
 }
 
 echo "Checking ChromaDB connection..."
-curl -s http://$CHROMADB_HOST:$CHROMADB_PORT/api/v1/heartbeat > /dev/null 2>&1 || {
+curl -s http://$CHROMADB_HOST:$CHROMADB_PORT/api/v2/heartbeat > /dev/null 2>&1 || {
     echo "ERROR: ChromaDB not running. Start ChromaDB first:"
     echo "  ./scripts/start_chromadb_macos.sh"
     exit 1
@@ -48,9 +54,11 @@ if [ ! -f "models/bge-m3.gguf" ]; then
 fi
 
 # Start uvicorn in background
-echo "Starting RAG Service API on port 5000..."
-uvicorn main:app --host 0.0.0.0 --port 5000 &
-UVICORN_PID=$!
+echo "Starting RAG Service API on port 5001..."
+python main.py
+#uvicorn main:app --host 0.0.0.0 --port 5001 &
+#UVICORN_PID=$!
+echo "Stated RAG Service API on port 5001..."
 
 # Wait for API to be ready
 sleep 5

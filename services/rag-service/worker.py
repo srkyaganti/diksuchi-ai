@@ -275,7 +275,7 @@ def main():
     redis_port = int(os.getenv("REDIS_PORT", "6379"))
 
     logger.info("=" * 60)
-    logger.info("DRDO RAG Worker Starting...")
+    logger.info("RAG Worker Starting...")
     logger.info(f"Redis: {redis_host}:{redis_port}")
     logger.info(f"Embedding Model: {EMBEDDING_MODEL_PATH}")
     logger.info(f"Callback URL: {NEXTJS_CALLBACK_URL}")

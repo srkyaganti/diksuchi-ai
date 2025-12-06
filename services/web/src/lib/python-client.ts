@@ -4,8 +4,8 @@
  * Provides typed interfaces for communicating with the Python RAG service.
  */
 
-const PYTHON_WORKER_URL = process.env.PYTHON_WORKER_URL || "http://localhost:5000";
-const PYTHON_RETRIEVAL_URL = process.env.PYTHON_RETRIEVAL_URL || "http://localhost:5000";
+const PYTHON_WORKER_URL = process.env.PYTHON_WORKER_URL || "http://localhost:5001";
+const PYTHON_RETRIEVAL_URL = process.env.PYTHON_RETRIEVAL_URL || "http://localhost:5001";
 
 // Request/Response Types
 export interface ProcessJobRequest {
