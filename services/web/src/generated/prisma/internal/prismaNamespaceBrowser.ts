@@ -82,6 +82,7 @@ export const CollectionScalarFieldEnum = {
   id: 'id',
   name: 'name',
   description: 'description',
+  organizationId: 'organizationId',
   userId: 'userId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -111,6 +112,7 @@ export type FileScalarFieldEnum = (typeof FileScalarFieldEnum)[keyof typeof File
 
 export const ChatSessionScalarFieldEnum = {
   id: 'id',
+  organizationId: 'organizationId',
   collectionId: 'collectionId',
   userId: 'userId',
   title: 'title',

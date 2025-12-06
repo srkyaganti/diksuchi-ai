@@ -18,18 +18,21 @@ datasource db {
 // Collection model for organizing files
 
 model Collection {
-  id           String        @id @default(cuid())
-  name         String
-  description  String?
-  userId       String
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  files        File[]
-  chatSessions ChatSession[]
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  files          File[]
+  chatSessions   ChatSession[]
 
   @@map("collections")
   @@index([userId])
+  @@index([organizationId])
 }
 
 // File model for uploaded documents
@@ -59,19 +62,22 @@ model File {
 // Chat session model for grouping conversations
 
 model ChatSession {
-  id           String        @id @default(cuid())
-  collectionId String
-  collection   Collection    @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title        String? // Auto-generated title from first message
-  messages     ChatMessage[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  collectionId   String
+  collection     Collection    @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String? // Auto-generated title from first message
+  messages       ChatMessage[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@map("chat_sessions")
   @@index([collectionId])
   @@index([userId])
+  @@index([organizationId])
 }
 
 // Chat message model for storing individual messages
@@ -165,14 +171,16 @@ model Verification {
 }
 
 model Organization {
-  id          String       @id
-  name        String
-  slug        String
-  logo        String?
-  createdAt   DateTime
-  metadata    String?
-  members     Member[]
-  invitations Invitation[]
+  id           String        @id
+  name         String
+  slug         String
+  logo         String?
+  createdAt    DateTime
+  metadata     String?
+  members      Member[]
+  invitations  Invitation[]
+  collections  Collection[]
+  chatSessions ChatSession[]
 
   @@unique([slug])
   @@map("organization")

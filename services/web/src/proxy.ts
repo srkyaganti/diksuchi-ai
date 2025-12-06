@@ -1,45 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
-export async function proxy(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  // Public routes
-  const publicRoutes = ["/login", "/change-password"];
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
-
-  if (isPublicRoute) {
+  // Skip public routes and admin routes
+  if (
+    pathname.startsWith("/api/auth") ||
+    pathname === "/login" ||
+    pathname === "/change-password" ||
+    pathname === "/" ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/public") ||
+    pathname.startsWith("/admin")
+  ) {
     return NextResponse.next();
   }
 
-  // Protected routes
-  const protectedRoutes = ["/chat", "/data-library", "/admin"];
-  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+  // Redirect old routes to org selector
+  if (pathname === "/chat" || pathname === "/data-library") {
+    const redirect = pathname.substring(1); // Remove leading /
+    return NextResponse.redirect(
+      new URL(`/select-organization?redirect=${redirect}`, request.url)
+    );
+  }
 
-  if (!isProtectedRoute) {
+  // Validate org routes
+  if (pathname.startsWith("/org/")) {
+    const session = await auth.api.getSession({ headers: request.headers });
+
+    if (!session) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    // Extract org slug from path: /org/[slug]/...
+    const parts = pathname.split("/");
+    const orgSlug = parts[2];
+
+    if (!orgSlug) {
+      return NextResponse.redirect(
+        new URL("/select-organization", request.url)
+      );
+    }
+
+    // Membership verification is done in the layout for better error handling
     return NextResponse.next();
-  }
-
-  // Validate session
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
-
-  if (!session) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  // Check if user must change password
-  const user = session.user as any;
-  if (user.mustChangePassword && pathname !== "/change-password") {
-    return NextResponse.redirect(new URL("/change-password", request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next|api|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-  ],
+  matcher: ["/org/:path*", "/chat", "/data-library", "/select-organization"],
 };

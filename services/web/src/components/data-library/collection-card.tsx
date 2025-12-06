@@ -26,9 +26,10 @@ interface Collection {
 
 interface CollectionCardProps {
   collection: Collection;
+  orgSlug?: string;
 }
 
-export function CollectionCard({ collection }: CollectionCardProps) {
+export function CollectionCard({ collection, orgSlug }: CollectionCardProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -61,8 +62,12 @@ export function CollectionCard({ collection }: CollectionCardProps) {
     }
   };
 
+  const href = orgSlug
+    ? `/org/${orgSlug}/data-library/${collection.id}`
+    : `/data-library/${collection.id}`;
+
   return (
-    <Link href={`/data-library/${collection.id}`}>
+    <Link href={href}>
       <Card className="hover:bg-accent/50 transition-colors cursor-pointer">
         <CardHeader>
           <div className="flex items-start justify-between">

@@ -106,12 +106,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check ownership (super admins can access any collection)
-    if (!user.isSuperAdmin && collection.userId !== authSession.user.id) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
+    // Check organization access (super admins can access any collection)
+    if (
+      !user.isSuperAdmin &&
+      collection.organizationId !== authSession.activeOrganizationId
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get the last user message
@@ -137,12 +137,12 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Verify user owns this session
-      if (!user.isSuperAdmin && session.userId !== authSession.user.id) {
-        return NextResponse.json(
-          { error: "Forbidden" },
-          { status: 403 }
-        );
+      // Verify session belongs to user's active organization
+      if (
+        !user.isSuperAdmin &&
+        session.organizationId !== authSession.activeOrganizationId
+      ) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     } else {
       // Create new session
@@ -150,7 +150,8 @@ export async function POST(request: NextRequest) {
       session = await prisma.chatSession.create({
         data: {
           collectionId,
-          userId: authSession.user.id, // Associate with current user
+          organizationId: collection.organizationId, // From collection
+          userId: authSession.user.id, // Creator for audit trail
           title: firstUserMessageText.substring(0, 50) || "New Chat",
         },
       });

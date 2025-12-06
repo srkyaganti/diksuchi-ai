@@ -52,12 +52,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check ownership (super admins can upload to any collection)
-    if (!user.isSuperAdmin && collection.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
+    // Check organization access (super admins can upload to any collection)
+    if (
+      !user.isSuperAdmin &&
+      collection.organizationId !== session.activeOrganizationId
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Generate UUID for file storage
