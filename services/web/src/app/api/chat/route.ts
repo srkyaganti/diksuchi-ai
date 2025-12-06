@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
       model: llmService(modelName),
       system: systemMessage.content,
       messages: modelMessages,
-      temperature: 0.7,
+      temperature: 0.0,
       onFinish: async ({ text }) => {
         // Save assistant message to database
         try {
