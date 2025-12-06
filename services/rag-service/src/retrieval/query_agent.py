@@ -58,7 +58,7 @@ class QueryAgent:
                 prompt,
                 max_tokens=64,
                 stop=["User Query:", "\n"],
-                temperature=0.3 # Low temperature for deterministic behavior
+                temperature=0.0 # Low temperature for deterministic behavior
             )
             refined = output['choices'][0]['text'].strip()
             logger.info(f"Refined query: '{original_query}' -> '{refined}'")
