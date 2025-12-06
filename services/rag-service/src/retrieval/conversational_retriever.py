@@ -42,6 +42,7 @@ class ConversationalRetriever:
     def retrieve_with_history(
         self,
         current_query: str,
+        collection_id: str,
         chat_history: List[Dict[str, str]],
         k: int = 10,
         rerank: bool = True,
@@ -49,9 +50,11 @@ class ConversationalRetriever:
     ) -> List[Dict[str, Any]]:
         """
         Retrieve documents considering conversation history.
+        Now collection-specific for data isolation.
 
         Args:
             current_query: Current user query
+            collection_id: Collection ID to search within
             chat_history: List of {"role": "user/assistant", "content": "..."}
             k: Number of results to return
             rerank: Whether to apply reranking
@@ -76,8 +79,12 @@ class ConversationalRetriever:
             refined_query = self.query_agent.refine_query(contextualized_query)
             logger.info(f"Refined query: '{refined_query}'")
 
-        # Step 3: Hybrid retrieval with expanded results pool
-        results = self.hybrid_retriever.search(query=refined_query, k=k)
+        # Step 3: Hybrid retrieval with expanded results pool (collection-specific)
+        results = self.hybrid_retriever.search(
+            query=refined_query,
+            collection_id=collection_id,
+            k=k
+        )
 
         # Step 4: Conversation-aware reranking
         if rerank and results:
