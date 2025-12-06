@@ -97,7 +97,29 @@ docker-compose logs -f
 # Wait for all services to be healthy (2-5 minutes)
 ```
 
-### 5. Verify Installation
+### 5. Initialize Database
+
+**First-time setup only:**
+
+```powershell
+# Access the web container
+docker exec -it diksuchi-app bash
+
+# Inside container, run database setup:
+pnpm prisma migrate deploy  # Apply migrations
+pnpm seed                    # Create super admin user
+
+# Exit container
+exit
+```
+
+**Default Login Credentials:**
+- Email: `admin@example.com`
+- Password: `Admin123!`
+
+(Change these in production via `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD` env vars)
+
+### 6. Verify Installation
 
 ```powershell
 # Check service status
@@ -231,6 +253,12 @@ docker-compose down -v
 docker-compose up -d postgres
 # Wait 10 seconds
 docker-compose up -d
+
+# Re-initialize database
+docker exec -it diksuchi-app bash
+pnpm prisma migrate deploy
+pnpm seed
+exit
 ```
 
 ### Issue: Out of memory

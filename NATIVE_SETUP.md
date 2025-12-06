@@ -42,8 +42,11 @@ deactivate
 # For Next.js:
 cd services/web
 pnpm install
-pnpm prisma generate
-pnpm prisma migrate deploy
+
+# Database setup (IMPORTANT - run in this order):
+pnpm prisma migrate dev --name init  # Create and apply migrations
+pnpm dev                              # Start dev server (required for seed)
+pnpm seed                             # In a new terminal: Create super admin user
 ```
 
 **3. Download Models** (Manual)
@@ -97,8 +100,11 @@ deactivate
 # For Next.js:
 cd services\web
 pnpm install
-pnpm prisma generate
-pnpm prisma migrate deploy
+
+# Database setup (IMPORTANT - run in this order):
+pnpm prisma migrate dev --name init  # Create and apply migrations
+pnpm dev                              # Start dev server (required for seed)
+pnpm seed                             # In a new terminal: Create super admin user
 ```
 
 **3. Download Models & External Services**

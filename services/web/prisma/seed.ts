@@ -1,11 +1,16 @@
+import { config } from "dotenv";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { hash } from "bcryptjs";
+
+// Load environment variables from .env files
+config({ path: ".env" });
+config({ path: ".env.local", override: true });
 
 const prisma = new PrismaClient();
 
 async function main() {
   const email = process.env.SUPER_ADMIN_EMAIL || "admin@example.com";
   const password = process.env.SUPER_ADMIN_PASSWORD || "Admin123!";
+  const name = "Super Administrator";
 
   // Check if super admin already exists
   const existing = await prisma.user.findUnique({
@@ -17,37 +22,32 @@ async function main() {
     return;
   }
 
-  // Hash password
-  const hashedPassword = await hash(password, 10);
+  // Use Better Auth's API to create user with properly hashed password
+  const response = await fetch(`${process.env.BETTER_AUTH_URL || "http://localhost:3000"}/api/auth/sign-up/email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, name }),
+  });
 
-  // Create super admin
-  const superAdmin = await prisma.user.create({
+  if (!response.ok) {
+    throw new Error(`Failed to create user: ${await response.text()}`);
+  }
+
+  const result = await response.json();
+
+  // Update user to be super admin
+  await prisma.user.update({
+    where: { email },
     data: {
-      id: Math.random().toString(36).substring(7),
-      email,
-      name: "Super Administrator",
-      emailVerified: true,
       isSuperAdmin: true,
+      emailVerified: true,
       mustChangePassword: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      accounts: {
-        create: {
-          id: Math.random().toString(36).substring(7),
-          accountId: email,
-          providerId: "credential",
-          password: hashedPassword,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      },
     },
   });
 
   console.log("Super admin created:", {
-    email: superAdmin.email,
-    id: superAdmin.id,
-    password: "Use the password you provided via SUPER_ADMIN_PASSWORD env var",
+    email,
+    password: "Use the password you provided",
   });
 }
 
