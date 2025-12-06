@@ -247,23 +247,28 @@ async def retrieve_context(request: RetrieveRequest):
                 for msg in request.chatHistory
             ]
 
-            # Perform conversation-aware retrieval
+            # Perform conversation-aware retrieval (collection-specific)
             results = conv_retriever.retrieve_with_history(
                 current_query=request.query,
+                collection_id=request.collectionId,
                 chat_history=chat_history,
                 k=request.limit,
                 rerank=request.rerank,
                 conversation_depth=request.conversationDepth
             )
         else:
-            # Standard hybrid retrieval (backward compatible)
-            logger.info(f"Performing standard hybrid search for query: {request.query[:50]}...")
+            # Standard hybrid retrieval (collection-specific)
+            logger.info(f"Performing standard hybrid search for collection {request.collectionId}, query: {request.query[:50]}...")
 
             # Get retriever instance
             retriever = get_retriever()
 
-            # Perform hybrid search (returns expanded pool for reranking)
-            results = retriever.search(query=request.query, k=request.limit)
+            # Perform hybrid search with collection isolation
+            results = retriever.search(
+                query=request.query,
+                collection_id=request.collectionId,
+                k=request.limit
+            )
 
             # Optional reranking
             if request.rerank and results:

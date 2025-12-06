@@ -144,32 +144,32 @@ def process_document_job(job_data: Dict[str, Any]):
         pipeline = get_pipeline()
         update_job_progress(25, "Initialized processing pipeline")
 
-        # Determine file type and process accordingly
+        # Determine file type and process accordingly with collection isolation
         if mime_type == "application/pdf" or file_path.endswith(".pdf"):
-            logger.info("Processing as PDF...")
+            logger.info(f"Processing as PDF for collection {collection_id}...")
             update_job_progress(30, "Parsing PDF document")
-            asyncio.run(pipeline.process_pdf(file_path))
+            asyncio.run(pipeline.process_pdf(file_path, collection_id, file_id))
             update_job_progress(75, "PDF processing completed")
 
         elif mime_type == "application/xml" or mime_type == "text/xml" or file_path.endswith(".xml"):
-            logger.info("Processing as S1000D XML...")
+            logger.info(f"Processing as S1000D XML for collection {collection_id}...")
             update_job_progress(30, "Parsing S1000D XML document")
-            asyncio.run(pipeline.process_s1000d(file_path))
+            asyncio.run(pipeline.process_s1000d(file_path, collection_id, file_id))
             update_job_progress(75, "S1000D processing completed")
 
         elif mime_type == "text/plain" or file_path.endswith(".txt"):
-            logger.info("Processing as plain text...")
+            logger.info(f"Processing as plain text for collection {collection_id}...")
             update_job_progress(30, "Parsing text document")
             # Process as PDF for now (will chunk and embed plain text)
-            asyncio.run(pipeline.process_pdf(file_path))
+            asyncio.run(pipeline.process_pdf(file_path, collection_id, file_id))
             update_job_progress(75, "Text processing completed")
 
         else:
             raise ValueError(f"Unsupported file type: {mime_type}")
 
-        # Build BM25 index (if not already built)
+        # Build BM25 index (collection-specific)
         update_job_progress(85, "Building search indices")
-        build_bm25_index(pipeline)
+        build_bm25_index(pipeline, collection_id)
 
         # Mark as completed
         update_job_progress(100, "Document processing completed")
@@ -203,35 +203,36 @@ def process_document_job(job_data: Dict[str, Any]):
         raise
 
 
-def build_bm25_index(pipeline: IngestionPipeline):
+def build_bm25_index(pipeline: IngestionPipeline, collection_id: str):
     """
-    Build or update BM25 keyword search index.
+    Build or update BM25 keyword search index for a specific collection.
 
-    This is a placeholder implementation. In production, you would:
-    1. Extract all documents from ChromaDB
-    2. Tokenize them
-    3. Build BM25S index
-    4. Save to disk
+    Args:
+        pipeline: IngestionPipeline instance
+        collection_id: Collection ID to build index for
 
-    For now, we'll skip if the index already exists.
+    This ensures BM25 indices are isolated per collection.
     """
     import bm25s
 
-    index_path = "data/bm25_index"
+    index_path = f"data/bm25_index/collection_{collection_id}"
 
     # Skip if index already exists
     if os.path.exists(index_path):
-        logger.info("BM25 index already exists, skipping rebuild")
+        logger.info(f"BM25 index already exists for collection {collection_id}, skipping rebuild")
         return
 
     try:
-        logger.info("Building BM25 index...")
+        logger.info(f"Building BM25 index for collection {collection_id}...")
 
-        # Get all documents from ChromaDB
-        results = pipeline.collection.get(include=["documents", "metadatas"])
+        # Get the collection-specific ChromaDB collection
+        collection = pipeline._get_collection(collection_id)
+
+        # Get all documents from this specific collection
+        results = collection.get(include=["documents", "metadatas"])
 
         if not results['ids']:
-            logger.warning("No documents found in collection, skipping BM25 index")
+            logger.warning(f"No documents found in collection {collection_id}, skipping BM25 index")
             return
 
         documents = results['documents']
