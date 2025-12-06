@@ -37,6 +37,24 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24, // 1 day
   },
 
+  // Include custom user fields in session
+  user: {
+    additionalFields: {
+      isSuperAdmin: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: false, // Not settable via API
+      },
+      mustChangePassword: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
+    },
+  },
+
   secret: process.env.BETTER_AUTH_SECRET!,
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
 });

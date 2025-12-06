@@ -44,12 +44,12 @@ export async function GET(
       );
     }
 
-    // Check ownership (super admins can access any collection)
-    if (!user.isSuperAdmin && collection.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
+    // Check organization access (super admins can access any collection)
+    if (
+      !user.isSuperAdmin &&
+      collection.organizationId !== session.activeOrganizationId
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     return NextResponse.json(collection);
@@ -92,12 +92,12 @@ export async function PUT(
       );
     }
 
-    // Check ownership (super admins can update any collection)
-    if (!user.isSuperAdmin && existingCollection.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
+    // Check organization access (super admins can update any collection)
+    if (
+      !user.isSuperAdmin &&
+      existingCollection.organizationId !== session.activeOrganizationId
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -162,12 +162,12 @@ export async function DELETE(
       );
     }
 
-    // Check ownership (super admins can delete any collection)
-    if (!user.isSuperAdmin && existingCollection.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
+    // Check organization access (super admins can delete any collection)
+    if (
+      !user.isSuperAdmin &&
+      existingCollection.organizationId !== session.activeOrganizationId
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     await prisma.collection.delete({

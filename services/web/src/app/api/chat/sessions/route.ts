@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getUserRoleInOrg } from "@/lib/org-context";
 
 /**
  * GET /api/chat/sessions - List user's chat sessions
@@ -17,10 +18,39 @@ export async function GET(request: NextRequest) {
     }
 
     const user = authSession.user as any;
+    const activeOrgId = authSession.activeOrganizationId;
 
-    // Super admins see all sessions, regular users see only their own
+    // Require active organization for non-super admins
+    if (!activeOrgId && !user.isSuperAdmin) {
+      return NextResponse.json(
+        { error: "No active organization" },
+        { status: 400 }
+      );
+    }
+
+    // Determine role-based filtering
+    let whereClause: any = {};
+
+    if (user.isSuperAdmin) {
+      // Super admins see all sessions
+      whereClause = {};
+    } else if (activeOrgId) {
+      // Get user's role in the organization
+      const role = await getUserRoleInOrg(authSession.user.id, activeOrgId);
+
+      // Owners and admins see all org sessions, members see only their own
+      if (role === "owner" || role === "admin") {
+        whereClause = { organizationId: activeOrgId };
+      } else {
+        whereClause = {
+          organizationId: activeOrgId,
+          userId: authSession.user.id
+        };
+      }
+    }
+
     const sessions = await prisma.chatSession.findMany({
-      where: user.isSuperAdmin ? {} : { userId: authSession.user.id },
+      where: whereClause,
       include: {
         collection: {
           select: { id: true, name: true },
@@ -66,10 +96,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get collection to obtain organizationId
+    const collection = await prisma.collection.findUnique({
+      where: { id: collectionId },
+      select: { organizationId: true },
+    });
+
+    if (!collection) {
+      return NextResponse.json(
+        { error: "Collection not found" },
+        { status: 404 }
+      );
+    }
+
     const session = await prisma.chatSession.create({
       data: {
         collectionId,
-        userId: authSession.user.id, // Associate with current user
+        organizationId: collection.organizationId, // From collection
+        userId: authSession.user.id, // Creator for audit trail
         title: title || "New Chat",
       },
     });

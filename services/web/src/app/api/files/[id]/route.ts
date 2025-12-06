@@ -35,12 +35,12 @@ export async function GET(
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    // Check ownership (super admins can access any file)
-    if (!user.isSuperAdmin && file.collection.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
+    // Check organization access (super admins can access any file)
+    if (
+      !user.isSuperAdmin &&
+      file.collection.organizationId !== session.activeOrganizationId
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     return NextResponse.json(serializeFile(file));
@@ -82,12 +82,12 @@ export async function DELETE(
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    // Check ownership (super admins can delete any file)
-    if (!user.isSuperAdmin && file.collection.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
+    // Check organization access (super admins can delete any file)
+    if (
+      !user.isSuperAdmin &&
+      file.collection.organizationId !== session.activeOrganizationId
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Delete physical file

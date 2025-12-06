@@ -21,10 +21,19 @@ export async function GET(request: NextRequest) {
     }
 
     const user = session.user as any;
+    const activeOrgId = session.activeOrganizationId;
 
-    // Super admins see all collections, regular users see only their own
+    // Require active organization for non-super admins
+    if (!activeOrgId && !user.isSuperAdmin) {
+      return NextResponse.json(
+        { error: "No active organization" },
+        { status: 400 }
+      );
+    }
+
+    // Super admins see all collections, regular users see only their org's collections
     const collections = await prisma.collection.findMany({
-      where: user.isSuperAdmin ? {} : { userId: session.user.id },
+      where: user.isSuperAdmin ? {} : { organizationId: activeOrgId },
       include: {
         _count: {
           select: {
@@ -71,11 +80,23 @@ export async function POST(request: NextRequest) {
 
     const { name, description } = validation.data;
 
+    const user = session.user as any;
+    const activeOrgId = session.activeOrganizationId;
+
+    // Require active organization
+    if (!activeOrgId) {
+      return NextResponse.json(
+        { error: "No active organization" },
+        { status: 400 }
+      );
+    }
+
     const collection = await prisma.collection.create({
       data: {
         name,
         description,
-        userId: session.user.id, // Associate with current user
+        organizationId: activeOrgId, // Associate with organization
+        userId: session.user.id, // Creator for audit trail
       },
       include: {
         _count: {

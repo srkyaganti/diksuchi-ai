@@ -20,7 +20,7 @@ export default async function AdminLayout({
   // Check if user is super admin
   const user = session.user as any;
   if (!user.isSuperAdmin) {
-    redirect("/chat");
+    redirect("/select-organization");
   }
 
   return (

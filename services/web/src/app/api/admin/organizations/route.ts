@@ -43,15 +43,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create organization
+    // Create organization and add creator as owner
     const organization = await prisma.organization.create({
       data: {
         id: Math.random().toString(36).substring(7),
         name,
         slug,
         createdAt: new Date(),
+        members: {
+          create: {
+            id: Math.random().toString(36).substring(7),
+            userId: session.user.id,
+            role: "owner",
+            createdAt: new Date(),
+          },
+        },
+      },
+      include: {
+        members: true,
       },
     });
+
+    console.log(
+      `Organization created: ${organization.name} with ${session.user.email} as owner`
+    );
 
     return NextResponse.json(organization, { status: 201 });
   } catch (error) {
