@@ -1,8 +1,6 @@
 "use client";
 
 import { useSession } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { NavigationHeader } from "@/components/landing/navigation-header";
 import { HeroSection } from "@/components/landing/hero-section";
 import { StatsBar } from "@/components/landing/stats-bar";
@@ -18,40 +16,8 @@ import { CTASection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
 
 export default function Home() {
-  const { data: session, isPending } = useSession();
-  const router = useRouter();
+  const { data: session } = useSession();
   const isAuthenticated = !!session;
-  const user = session?.user as any;
-
-  // Redirect authenticated users to appropriate page
-  useEffect(() => {
-    if (isAuthenticated && !isPending) {
-      // Super admins go to admin panel, regular users select organization
-      if (user?.isSuperAdmin) {
-        router.push("/admin");
-      } else {
-        router.push("/select-organization");
-      }
-    }
-  }, [isAuthenticated, isPending, router, user?.isSuperAdmin]);
-
-  // Show loading state while checking authentication
-  if (isPending) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  // If authenticated, show loading while redirecting
-  if (isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
