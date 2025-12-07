@@ -26,9 +26,9 @@ export default function Home() {
   // Redirect authenticated users to appropriate page
   useEffect(() => {
     if (isAuthenticated && !isPending) {
-      // Super admins go to admin panel if no orgs, otherwise org selector
+      // Super admins go to admin panel, regular users select organization
       if (user?.isSuperAdmin) {
-        router.push("/admin/organizations");
+        router.push("/admin");
       } else {
         router.push("/select-organization");
       }

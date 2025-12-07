@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import {
@@ -45,6 +46,9 @@ import { toast } from "sonner";
 import { CopyIcon, RefreshCcwIcon } from "lucide-react";
 
 export default function ChatPage() {
+  const params = useParams();
+  const orgSlug = params.slug as string;
+
   const [collectionId, setCollectionId] = useState<string>("");
   const [sessionId, setSessionId] = useState<string>("");
   const [isRecording, setIsRecording] = useState(false);
@@ -151,6 +155,7 @@ export default function ChatPage() {
           <CollectionSelector
             onSelect={handleCollectionSelect}
             defaultValue={collectionId}
+            orgSlug={orgSlug}
           />
         </div>
       </div>

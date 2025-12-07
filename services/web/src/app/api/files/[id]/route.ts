@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getActiveOrganizationId } from "@/lib/org-context";
 import { unlink } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
@@ -23,6 +24,7 @@ export async function GET(
 
     const { id } = await params;
     const user = session.user as any;
+    const activeOrgId = await getActiveOrganizationId(session);
 
     const file = await prisma.file.findUnique({
       where: { id },
@@ -38,7 +40,7 @@ export async function GET(
     // Check organization access (super admins can access any file)
     if (
       !user.isSuperAdmin &&
-      file.collection.organizationId !== session.activeOrganizationId
+      file.collection.organizationId !== activeOrgId
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -70,6 +72,7 @@ export async function DELETE(
 
     const { id } = await params;
     const user = session.user as any;
+    const activeOrgId = await getActiveOrganizationId(session);
 
     const file = await prisma.file.findUnique({
       where: { id },
@@ -85,7 +88,7 @@ export async function DELETE(
     // Check organization access (super admins can delete any file)
     if (
       !user.isSuperAdmin &&
-      file.collection.organizationId !== session.activeOrganizationId
+      file.collection.organizationId !== activeOrgId
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
