@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -12,7 +11,6 @@ export function PasswordTab() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [revokeOtherSessions, setRevokeOtherSessions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,7 +50,7 @@ export function PasswordTab() {
         body: JSON.stringify({
           currentPassword,
           newPassword,
-          revokeOtherSessions,
+          revokeOtherSessions: true,
         }),
       });
 
@@ -67,7 +65,6 @@ export function PasswordTab() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setRevokeOtherSessions(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to change password");
     } finally {
@@ -131,20 +128,6 @@ export function PasswordTab() {
                 minLength={8}
                 autoComplete="new-password"
               />
-            </div>
-
-            {/* Revoke Other Sessions Checkbox */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="revokeOtherSessions"
-                checked={revokeOtherSessions}
-                onCheckedChange={(checked) =>
-                  setRevokeOtherSessions(checked as boolean)
-                }
-              />
-              <Label htmlFor="revokeOtherSessions" className="font-normal cursor-pointer">
-                Sign out from all other devices
-              </Label>
             </div>
 
             {/* Submit Button */}
