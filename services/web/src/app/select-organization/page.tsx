@@ -75,7 +75,10 @@ export default async function SelectOrganizationPage({
 
   return (
     <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-8">Select Organization</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold">Select Organization</h1>
+        {user.isSuperAdmin && <CreateOrganizationDialog />}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {organizations.map((org) => (
           <OrganizationCard
