@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     // Super admins see all collections, regular users see only their org's collections
     const collections = await prisma.collection.findMany({
-      where: user.isSuperAdmin ? {} : { organizationId: activeOrgId },
+      where: user.isSuperAdmin ? {} : { organizationId: activeOrgId || undefined },
       include: {
         _count: {
           select: {

@@ -24,7 +24,7 @@ export function TimelineSteps() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-4">
             {howItWorks.steps.map((step, index) => {
               const IconComponent =
-                Icons[step.icon as keyof typeof Icons] || Icons.Circle;
+                (Icons[step.icon as keyof typeof Icons] || Icons.Circle) as React.ComponentType<{className?: string}>;
 
               return (
                 <div key={index} className="relative">

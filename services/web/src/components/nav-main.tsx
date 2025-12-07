@@ -18,6 +18,7 @@ export function NavMain({
     title: string
     url: string
     icon?: Icon
+    external?: boolean
   }[]
 }) {
   return (
@@ -27,7 +28,13 @@ export function NavMain({
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild tooltip={item.title}>
-                <Link href={item.url}>
+                <Link
+                  href={item.url}
+                  {...(item.external && {
+                    target: "_blank",
+                    rel: "noopener noreferrer"
+                  })}
+                >
                   {item.icon && <item.icon />}
                   <span>{item.title}</span>
                 </Link>

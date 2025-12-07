@@ -11,7 +11,7 @@ export function StatsBar() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {stats.map((stat, index) => {
             const IconComponent =
-              Icons[stat.icon as keyof typeof Icons] || Icons.Star;
+              (Icons[stat.icon as keyof typeof Icons] || Icons.Star) as React.ComponentType<{className?: string}>;
             return (
               <div key={index} className="flex flex-col items-center text-center">
                 <div className="mb-3">

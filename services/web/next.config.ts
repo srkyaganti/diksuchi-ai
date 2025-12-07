@@ -1,10 +1,20 @@
 import type { NextConfig } from "next";
+import createMDX from "@next/mdx";
 
 const nextConfig: NextConfig = {
 	output: 'standalone', // Required for Docker deployment
 	experimental: {
-		proxyClientMaxBodySize: '500mb'
-	}
+		proxyClientMaxBodySize: '500mb',
+	},
+	pageExtensions: ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx'],
 };
 
-export default nextConfig;
+const withMDX = createMDX({
+	options: {
+		// Use string names for Turbopack compatibility
+		remarkPlugins: ['remark-gfm'],
+		rehypePlugins: ['rehype-slug'],
+	},
+});
+
+export default withMDX(nextConfig);

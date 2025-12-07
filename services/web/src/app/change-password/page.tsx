@@ -52,11 +52,15 @@ export default function ChangePasswordPage() {
       toast.success("Password changed successfully");
 
       // Redirect based on user role
-      const user = session.user as any;
-      if (user?.isSuperAdmin) {
-        router.push("/admin");
+      if (session) {
+        const user = session.user as any;
+        if (user?.isSuperAdmin) {
+          router.push("/admin");
+        } else {
+          router.push("/select-organization");
+        }
       } else {
-        router.push("/select-organization");
+        router.push("/login");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to change password");

@@ -11,7 +11,7 @@ function ExampleQueriesVisual() {
     <div className="w-full space-y-4">
       {documentIntelligence.exampleQueries.map((example, index) => {
         const IconComponent =
-          Icons[example.icon as keyof typeof Icons] || Icons.MessageCircle;
+          (Icons[example.icon as keyof typeof Icons] || Icons.MessageCircle) as React.ComponentType<{className?: string}>;
 
         return (
           <Card

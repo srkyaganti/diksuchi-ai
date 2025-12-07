@@ -284,7 +284,7 @@ export const landingContent = {
     primaryCTA: "Login to Dashboard",
     secondaryCTA: "View Documentation",
     primaryCTALink: "/login",
-    secondaryCTALink: "#", // Update with docs link when available
+    secondaryCTALink: "/docs",
   },
 
   footer: {
@@ -302,7 +302,7 @@ export const landingContent = {
       {
         title: "Resources",
         links: [
-          { label: "Documentation", href: "#" },
+          { label: "Documentation", href: "/docs" },
           { label: "Support", href: "#" },
           { label: "API Reference", href: "#" },
         ],

@@ -37,7 +37,7 @@ export default async function OrgLayout({
   }
 
   // Set active organization in session if not set or different
-  if (session.activeOrganizationId !== org.id) {
+  if (session.session?.activeOrganizationId !== org.id) {
     const sessionId = (session as any).session?.id;
     if (sessionId) {
       await setActiveOrganization(sessionId, org.id);

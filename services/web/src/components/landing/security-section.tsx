@@ -32,7 +32,7 @@ export function SecuritySection() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           {security.features.map((feature, index) => {
             const IconComponent =
-              Icons[feature.icon as keyof typeof Icons] || Icons.Shield;
+              (Icons[feature.icon as keyof typeof Icons] || Icons.Shield) as React.ComponentType<{className?: string}>;
 
             return (
               <Card key={index} className="text-center">

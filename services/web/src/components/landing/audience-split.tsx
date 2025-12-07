@@ -17,7 +17,7 @@ export function AudienceSplit() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           {audiences.map((aud) => {
             const IconComponent =
-              Icons[aud.icon as keyof typeof Icons] || Icons.Users;
+              (Icons[aud.icon as keyof typeof Icons] || Icons.Users) as React.ComponentType<{className?: string}>;
 
             return (
               <Card
