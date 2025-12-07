@@ -22,6 +22,7 @@ export const landingContent = {
       { label: "Features", href: "#features" },
       { label: "Security", href: "#security" },
       { label: "How It Works", href: "#how-it-works" },
+      { label: "Documentation", href: "/docs" },
     ],
     loginCTA: "Login",
     dashboardCTA: "Go to Dashboard",
