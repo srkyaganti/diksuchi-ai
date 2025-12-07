@@ -34,6 +34,10 @@ export function NavigationHeader({
                 key={link.href}
                 href={link.href}
                 className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                {...(link.href === "/docs" && {
+                  target: "_blank",
+                  rel: "noopener noreferrer",
+                })}
               >
                 {link.label}
               </Link>
@@ -80,6 +84,10 @@ export function NavigationHeader({
                   href={link.href}
                   className="block rounded-md px-3 py-2 text-base font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
                   onClick={() => setMobileMenuOpen(false)}
+                  {...(link.href === "/docs" && {
+                    target: "_blank",
+                    rel: "noopener noreferrer",
+                  })}
                 >
                   {link.label}
                 </Link>
