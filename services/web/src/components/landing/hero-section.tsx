@@ -5,9 +5,10 @@ import { landingContent } from "@/lib/landing-content";
 
 interface HeroSectionProps {
   isAuthenticated?: boolean;
+  onGetStarted?: () => void;
 }
 
-export function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
+export function HeroSection({ isAuthenticated = false, onGetStarted }: HeroSectionProps) {
   const { hero } = landingContent;
 
   return (
@@ -30,8 +31,8 @@ export function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             {isAuthenticated ? (
-              <Button asChild size="lg" className="text-base px-8 py-6">
-                <Link href="/chat">{hero.primaryCTA}</Link>
+              <Button size="lg" className="text-base px-8 py-6" onClick={onGetStarted}>
+                {hero.primaryCTA}
               </Button>
             ) : (
               <Button asChild size="lg" className="text-base px-8 py-6">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 import { NavigationHeader } from "@/components/landing/navigation-header";
 import { HeroSection } from "@/components/landing/hero-section";
 import { StatsBar } from "@/components/landing/stats-bar";
@@ -17,7 +18,17 @@ import { Footer } from "@/components/landing/footer";
 
 export default function Home() {
   const { data: session } = useSession();
+  const router = useRouter();
   const isAuthenticated = !!session;
+  const user = session?.user as any;
+
+  const handleGetStarted = () => {
+    if (user?.isSuperAdmin) {
+      router.push("/admin");
+    } else {
+      router.push("/select-organization");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -25,7 +36,7 @@ export default function Home() {
       <NavigationHeader isAuthenticated={isAuthenticated} />
 
       {/* Hero Section */}
-      <HeroSection isAuthenticated={isAuthenticated} />
+      <HeroSection isAuthenticated={isAuthenticated} onGetStarted={handleGetStarted} />
 
       {/* Stats Bar */}
       <StatsBar />
@@ -49,7 +60,7 @@ export default function Home() {
       <TechnologyTrust />
 
       {/* Final CTA */}
-      <CTASection isAuthenticated={isAuthenticated} />
+      <CTASection isAuthenticated={isAuthenticated} onGetStarted={handleGetStarted} />
 
       {/* Footer */}
       <Footer />
