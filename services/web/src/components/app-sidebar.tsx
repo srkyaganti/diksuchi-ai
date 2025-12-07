@@ -86,7 +86,7 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
         <NavMain items={navItems} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser />
+        <NavUser organization={organization} />
       </SidebarFooter>
     </Sidebar>
   );

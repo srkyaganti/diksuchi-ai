@@ -6,6 +6,7 @@ import {
   IconSettings,
 } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
+import { Organization } from "@/generated/prisma/client"
 import {
   Avatar,
   AvatarFallback,
@@ -27,7 +28,11 @@ import {
 } from "@/components/ui/sidebar"
 import { useSession, signOut } from "@/lib/auth-client"
 
-export function NavUser() {
+interface NavUserProps {
+  organization?: Organization
+}
+
+export function NavUser({ organization }: NavUserProps) {
   const { isMobile } = useSidebar()
   const { data: session } = useSession()
   const router = useRouter()
@@ -91,7 +96,7 @@ export function NavUser() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/settings")}>
+            <DropdownMenuItem onClick={() => router.push(organization ? `/org/${organization.slug}/settings` : "/settings")}>
               <IconSettings />
               Settings
             </DropdownMenuItem>
