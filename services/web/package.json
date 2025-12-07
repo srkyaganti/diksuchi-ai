@@ -52,6 +52,7 @@
     "date-fns": "^4.1.0",
     "elevenlabs": "^1.59.0",
     "embla-carousel-react": "^8.6.0",
+    "github-slugger": "^2.0.0",
     "lucide-react": "^0.553.0",
     "motion": "^12.23.24",
     "nanoid": "^5.1.6",
