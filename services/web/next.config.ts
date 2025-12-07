@@ -11,7 +11,6 @@ const nextConfig: NextConfig = {
 
 const withMDX = createMDX({
 	options: {
-		// Use string names for Turbopack compatibility
 		remarkPlugins: ['remark-gfm'],
 		rehypePlugins: ['rehype-slug'],
 	},
