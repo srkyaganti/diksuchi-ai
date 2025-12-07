@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const user = authSession.user as any;
-    const activeOrgId = authSession.activeOrganizationId;
+    const activeOrgId = authSession.session?.activeOrganizationId;
 
     // Require active organization for non-super admins
     if (!activeOrgId && !user.isSuperAdmin) {

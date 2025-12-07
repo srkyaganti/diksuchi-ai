@@ -1,0 +1,533 @@
+# Diksuchi AI User Guide
+
+Welcome to Diksuchi AI! This guide will help you understand and use all the features of the platform.
+
+## Getting Started
+
+Diksuchi AI is an intelligent document assistant that helps you find answers in your technical documentation using voice or text queries in multiple Indian languages.
+
+<Tip>
+First time here? Start by logging in and selecting your organization.
+</Tip>
+
+### Logging In
+
+1. Navigate to the login page
+2. Enter your email and password
+3. Click "Sign In"
+
+<Info>
+If this is your first login, you may be prompted to change your password for security.
+</Info>
+
+### Understanding the Dashboard
+
+After logging in, you'll see the main dashboard with:
+
+- **Sidebar navigation**: Quick access to all features
+- **Organization switcher**: Change between different organizations
+- **Active collection**: Shows which document collection you're currently working with
+
+The sidebar provides quick navigation to:
+- **Chat**: Talk to your documents with voice or text
+- **Data Library**: Manage your document collections and files
+- **Members**: Manage your team
+- **Chat History**: Browse past conversations
+
+---
+
+## Organizations & Access Control
+
+Organizations are workspaces that keep your documents and team members organized. Each organization is completely isolated, so documents and team members belong to specific organizations.
+
+### Understanding Organizations
+
+An organization is essentially your workspace. You can:
+- Belong to multiple organizations
+- Switch between them using the organization switcher
+- Have different roles (Owner, Admin, or Member) in each
+
+### Switching Organizations
+
+**Step 1**: Click the organization switcher in the sidebar header (shows your current organization name)
+
+**Step 2**: Choose from the list of organizations you're a member of
+
+**Step 3**: The dashboard updates instantly to show data from the selected organization
+
+### User Roles & Permissions
+
+Each organization has three types of users:
+
+- **Owner**: Full control over the organization. Can manage members, collections, and all settings
+- **Admin**: Can manage members and organization settings, but cannot delete the organization
+- **Member**: Can create and use collections and participate in chats, but cannot manage members or settings
+
+Your role determines what actions you can perform in each organization.
+
+---
+
+## Collections & File Management
+
+Collections organize your documents into logical groups. Each collection is isolated, meaning documents in one collection are only searchable within that collection. This helps keep different projects or document sets separate.
+
+### What Are Collections?
+
+Collections are containers for your documents. For example, you might have:
+- A collection for aircraft maintenance manuals
+- A collection for technical specifications
+- A collection for compliance documentation
+- A collection for engineering drawings
+
+Each collection maintains its own search index, so documents stay organized and relevant searches are faster.
+
+### Creating a Collection
+
+**Step 1**: Click "Data Library" in the sidebar
+
+**Step 2**: Click the "Create Collection" button
+
+**Step 3**: Enter a name for your collection (e.g., "Aircraft Maintenance Docs")
+
+**Step 4**: Optionally add a description to explain what documents belong in this collection
+
+**Step 5**: Click "Create" to finish
+
+Your new collection is now ready to receive documents.
+
+### Uploading Documents
+
+**Step 1**: Select a collection from the Data Library
+
+**Step 2**: Click the blue "Upload" button in the top-right corner
+
+**Step 3**: Choose files from your computer (PDF, DOCX, or S1000D XML formats)
+
+**Step 4**: Select the files and confirm the upload
+
+**Step 5**: Wait for processing to complete (status shows as "Processing")
+
+<Tip>
+Supported formats: PDF, DOCX, and S1000D XML. Maximum file size: 500MB per file.
+</Tip>
+
+### Understanding File Status
+
+Files go through several states while being processed:
+
+- 🟡 **Pending**: File uploaded, waiting to be processed by our system
+- 🔄 **Processing**: File is being analyzed, indexed, and prepared for searching
+- ✅ **Completed**: File is ready and you can ask questions about it
+- ❌ **Failed**: Processing failed. Check that the file format is correct and try re-uploading
+
+<Info>
+Processing time depends on file size and complexity. Large files may take several minutes to complete processing.
+</Info>
+
+### Managing Your Files
+
+**To view files in a collection:**
+- Click on the collection in Data Library to see all files
+
+**To download a file:**
+- Click the file menu and select "Download"
+
+**To delete a file:**
+- Click the file menu and select "Delete"
+- Confirm the deletion
+
+<Warning>
+Deleting a file is permanent and cannot be undone. All search history related to this file will be removed.
+</Warning>
+
+### Best Practices for Organization
+
+- Group related documents into collections
+- Use clear, descriptive collection names
+- Include dates in collection names for time-sensitive documents
+- Keep file names descriptive so you can identify them later
+
+---
+
+## Asking Questions (Chat Interface)
+
+The chat interface lets you ask questions about your documents using natural language. The system finds relevant information and provides answers with citations showing where the information came from.
+
+### Starting a Chat Session
+
+**Step 1**: Click "Chat" in the sidebar
+
+**Step 2**: Select which collection to query from the dropdown at the top
+
+**Step 3**: Type your question in the message input field (or use voice - see Voice Features section)
+
+**Step 4**: Press Enter or click the Send button
+
+**Step 5**: Wait for the AI to process your question and return results
+
+The AI will provide an answer based on your documents, along with source citations.
+
+### Asking Effective Questions
+
+For better results, ask specific questions rather than general ones:
+
+**Better**: "What is the torque specification for bolt #247 in the main rotor assembly?"
+
+**Less effective**: "Tell me about bolts"
+
+Tips for effective questions:
+- Be specific about what you're looking for
+- Include technical terms from your documents
+- Mention part numbers or section names if relevant
+- Ask one question at a time
+
+<Tip>
+If the answer doesn't seem right, try rephrasing your question or asking about a specific section of the document.
+</Tip>
+
+### Understanding Responses
+
+Each response includes several parts:
+
+- **Answer**: The AI-generated response based on your documents
+- **Sources**: The specific document sections that were used to generate the answer
+- **Relevance Score**: A percentage (0-100%) indicating how relevant each source is to your question
+
+### Using Chat Features
+
+**Copy a response**: Click the copy icon next to a message to save it to your clipboard
+
+**Regenerate answer**: Click the refresh icon to ask for a different response to the same question
+
+**Clear chat**: Start a fresh conversation by clicking "Clear" or "New Chat"
+
+**View source documents**: Click on a source citation to jump to the relevant section in the document
+
+### Chat History
+
+All your conversations are saved automatically. You can:
+- Click "Chat History" in the sidebar to see past conversations
+- Click on any previous chat to view it again
+- Search through your chat history to find past questions and answers
+
+---
+
+## Voice Features
+
+Diksuchi AI supports hands-free operation with speech-to-text and text-to-speech in 18+ Indian languages, making it easy to use while working on other tasks.
+
+### Using Voice Input
+
+**Step 1**: Click the microphone icon in the chat interface
+
+**Step 2**: Grant microphone access to your browser if prompted
+
+**Step 3**: Speak your question clearly at a normal pace
+
+**Step 4**: Click the stop button when you're finished speaking
+
+**Step 5**: The system transcribes your speech and sends the question
+
+Your spoken question will appear in the chat as text, and you'll get a response just like typing.
+
+<Tip>
+For best results with voice input:
+- Use a quiet environment
+- Speak at a normal pace
+- Speak clearly without rushing
+- Keep questions reasonably brief
+</Tip>
+
+### Supported Languages
+
+Diksuchi AI supports voice input and output in many Indian languages:
+
+- **Hindi**, Tamil, Telugu, Bengali
+- Marathi, Gujarati, Kannada, Malayalam
+- Punjabi, Odia, Assamese, Konkani
+- English and more
+
+Select your preferred language in Account Settings before using voice features.
+
+### Listening to Responses (Text-to-Speech)
+
+**To enable audio responses:**
+- Toggle the speaker icon in the chat interface
+- Responses will now be read aloud automatically
+
+**To control playback:**
+- Pause/resume the audio using the playback controls
+- Adjust volume with your device volume controls
+- Mute audio by toggling the speaker icon again
+
+<Info>
+Text-to-speech uses high-quality voices optimized for Indian languages. Download language packs in Settings for faster, offline audio processing.
+</Info>
+
+### Troubleshooting Audio Issues
+
+**Microphone not detected?**
+- Check browser permissions for microphone access
+- Try a different browser
+- Ensure your device microphone is working
+
+**Audio is muffled or unclear?**
+- Move closer to your microphone
+- Reduce background noise
+- Speak more clearly and slowly
+
+---
+
+## Managing Team Members
+
+If you're an Owner or Admin, you can invite colleagues to collaborate within your organization.
+
+### Inviting New Members
+
+**Step 1**: Click "Members" in the sidebar
+
+**Step 2**: Click the "Invite Member" button
+
+**Step 3**: Enter the email address of the person you want to invite
+
+**Step 4**: Select their role: Owner, Admin, or Member
+
+**Step 5**: Click "Send Invitation"
+
+The person will receive an email with a link to join your organization. They can accept the invitation and start collaborating.
+
+### Understanding Roles When Inviting
+
+- **Owner**: Full access to everything in the organization
+- **Admin**: Can manage team members and settings
+- **Member**: Can use collections and chat, but can't manage team
+
+Choose the appropriate role based on what the person needs to do.
+
+### Changing Member Roles
+
+**Step 1**: Go to the Members page
+
+**Step 2**: Find the member in the list
+
+**Step 3**: Click the role dropdown next to their name
+
+**Step 4**: Select the new role (Owner, Admin, or Member)
+
+**Step 5**: Changes apply immediately
+
+### Removing Members
+
+**Step 1**: Go to the Members page
+
+**Step 2**: Find the member you want to remove
+
+**Step 3**: Click the menu icon (three dots) next to their name
+
+**Step 4**: Select "Remove from organization"
+
+**Step 5**: Confirm the removal
+
+<Warning>
+Once a member is removed, they lose access to all collections and chat history in this organization. They will not be able to see any documents or conversations.
+</Warning>
+
+### Member Permissions by Role
+
+**Members can:**
+- View and search all collections in the organization
+- Ask questions in chat
+- Use voice input/output
+- View chat history
+- See other team members
+
+**Admins can additionally:**
+- Invite and remove team members
+- Change member roles
+- Access organization settings
+
+**Owners can additionally:**
+- Manage everything Admins can
+- Delete the organization
+- Transfer organization ownership
+
+---
+
+## Account Settings
+
+Manage your personal account preferences and security settings.
+
+### Updating Your Profile
+
+**Step 1**: Click your avatar or name in the sidebar footer
+
+**Step 2**: Select "Settings"
+
+**Step 3**: Click the "Profile" tab
+
+**Step 4**: Update your display name or email
+
+**Step 5**: Click "Save Changes"
+
+Your profile information is updated immediately.
+
+### Changing Your Password
+
+**Step 1**: Go to Settings
+
+**Step 2**: Click the "Password" tab
+
+**Step 3**: Enter your current password
+
+**Step 4**: Enter your new password
+
+**Step 5**: Confirm the new password by typing it again
+
+**Step 6**: Click "Change Password"
+
+<Tip>
+Use a strong password with at least 8 characters, including uppercase letters, lowercase letters, numbers, and symbols for better security.
+</Tip>
+
+### Language Preferences
+
+**Step 1**: Go to Settings
+
+**Step 2**: Click the "Preferences" tab
+
+**Step 3**: Select your preferred language for:
+   - Interface language (the menus and buttons)
+   - Voice input language (for speech-to-text)
+   - Voice output language (for text-to-speech)
+
+**Step 4**: Click "Save Preferences"
+
+Your language settings apply immediately to new conversations.
+
+### Security Best Practices
+
+- Change your password periodically
+- Use a unique password for this account
+- Don't share your password with anyone
+- Log out on shared devices
+- Review your active sessions in Settings and log out if needed
+
+<Warning>
+If you suspect unauthorized access to your account, change your password immediately and contact support.
+</Warning>
+
+---
+
+## Admin Features
+
+These features are only available to super administrators and allow management of organizations and users across the entire platform.
+
+### Creating Organizations
+
+Super admins can create new organizations to organize different departments, teams, or projects.
+
+**Step 1**: Click "Admin" in the sidebar
+
+**Step 2**: Click "Create Organization"
+
+**Step 3**: Enter the organization name (e.g., "Engineering Division")
+
+**Step 4**: Enter a unique organization slug (URL-friendly name)
+
+**Step 5**: Click "Create"
+
+The new organization is created and ready for users to join.
+
+### Managing Users
+
+From the Admin panel, you can:
+
+- **View all users**: See a list of all registered users across the platform
+- **Ban a user**: Prevent a user from logging in (click user menu → Ban)
+- **Unban a user**: Restore access for a previously banned user
+- **Reset password**: Send a password reset link to a user
+- **View user activity**: See which organizations a user belongs to
+
+### Managing Organizations
+
+Admins can:
+
+- **View all organizations**: See the list of all organizations on the platform
+- **Edit organization details**: Update the name and settings
+- **View organization members**: See who belongs to each organization
+- **View collections and files**: Monitor what documents are in the system
+- **View system statistics**: Monitor platform usage and processing status
+
+### System Statistics
+
+The Admin dashboard shows:
+
+- **Total users**: Number of registered users
+- **Active organizations**: Number of organizations
+- **Total documents**: Number of files processed
+- **Processing status**: How many files are pending, processing, or completed
+- **System health**: Status of databases and services
+
+<Warning>
+Admin features affect the entire platform. Use admin capabilities carefully and document any changes made for audit purposes.
+</Warning>
+
+---
+
+## Common Questions
+
+### Why is my file stuck in "Processing" status?
+
+Large files can take several minutes to process depending on size and content complexity. If processing takes longer than 15 minutes, the file may have failed silently. Try deleting the file and re-uploading it.
+
+### Can I query multiple collections at once?
+
+Currently, each chat session is scoped to one collection for data isolation and performance. You can easily switch collections from the chat dropdown to search across different collections one at a time.
+
+### What languages are supported for voice input?
+
+We support voice input in 18+ languages including Hindi, Tamil, Telugu, Bengali, Marathi, Gujarati, Kannada, Malayalam, Punjabi, Odia, Assamese, English, and several others. Check the Language Preferences section in Settings for the complete list.
+
+### How do I delete a collection?
+
+Click on the collection in Data Library, then click the menu icon and select "Delete Collection". All files in the collection will be deleted. This action cannot be undone.
+
+### How do I delete a file?
+
+Go to the collection in Data Library, find the file, click the menu icon, and select "Delete". The file will be removed permanently and no longer searchable.
+
+### Can I invite users from outside my organization?
+
+Yes! You can invite anyone by their email address, even if they haven't used Diksuchi AI before. They'll receive an invitation email and can create an account to join your organization.
+
+### What happens to chat history when I switch collections?
+
+Chat history for each collection is separate. When you switch collections, you'll see the chat history for that specific collection. Previous chats remain in that collection's history.
+
+### How do I back up my documents?
+
+You can download individual files from the Data Library at any time. Use the file menu to select "Download" for each file you want to back up.
+
+### Can I share chat responses with others?
+
+Yes! Click the copy icon to copy a response, then share it directly. You can also invite team members to your organization so they can view the same documents and chat history.
+
+### What happens if I remove a team member?
+
+Removed members lose access to all collections and chat history in that organization. They can be re-invited later if needed.
+
+---
+
+## Need More Help?
+
+If you have questions not covered in this guide:
+
+- **Contact support**: Reach out to our support team at support@diksuchi.ai
+- **Check the status page**: Visit our system status page to check if there are any known issues
+- **Ask in chat**: Use the chat interface to ask questions about your documents
+- **Contact your admin**: Reach out to your organization administrator for account-specific questions
+
+---
+
+*Last updated: December 2025*
+*Diksuchi AI - Intelligent Document Assistance Platform*

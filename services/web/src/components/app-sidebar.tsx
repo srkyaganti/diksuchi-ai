@@ -7,6 +7,7 @@ import {
   IconShieldCheck,
   IconUsers,
   IconHistory,
+  IconBook,
 } from "@tabler/icons-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -51,6 +52,12 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
           title: "Chat History",
           url: `/org/${organization.slug}/chat-history`,
           icon: IconHistory,
+        },
+        {
+          title: "Documentation",
+          url: "/docs",
+          icon: IconBook,
+          external: true,
         },
       ]
     : [

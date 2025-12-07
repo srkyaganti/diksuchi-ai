@@ -27,6 +27,10 @@ export function Footer() {
                     <Link
                       href={link.href}
                       className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      {...(link.href === "/docs" && {
+                        target: "_blank",
+                        rel: "noopener noreferrer"
+                      })}
                     >
                       {link.label}
                     </Link>

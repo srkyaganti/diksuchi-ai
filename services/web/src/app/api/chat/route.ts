@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     // Check organization access (super admins can access any collection)
     if (
       !user.isSuperAdmin &&
-      collection.organizationId !== authSession.activeOrganizationId
+      collection.organizationId !== authSession.session?.activeOrganizationId
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
       // Verify session belongs to user's active organization
       if (
         !user.isSuperAdmin &&
-        session.organizationId !== authSession.activeOrganizationId
+        session.organizationId !== authSession.session?.activeOrganizationId
       ) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
