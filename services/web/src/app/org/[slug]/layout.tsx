@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { isOrgMember, setActiveOrganization } from "@/lib/org-context";
 import prisma from "@/lib/prisma";
 import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 
 export default async function OrgLayout({
   children,
@@ -47,7 +47,9 @@ export default async function OrgLayout({
   return (
     <SidebarProvider>
       <AppSidebar organization={org} />
-      {children}
+      <SidebarInset>
+        {children}
+      </SidebarInset>
     </SidebarProvider>
   );
 }
