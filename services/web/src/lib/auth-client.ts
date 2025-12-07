@@ -18,4 +18,6 @@ export const {
   useSession,
   organization,
   admin,
+  updateUser,
+  changePassword,
 } = authClient;
