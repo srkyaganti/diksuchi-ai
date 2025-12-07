@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getActiveOrganizationId } from "@/lib/org-context";
 import { z } from "zod";
 
 const createCollectionSchema = z.object({
@@ -21,7 +22,11 @@ export async function GET(request: NextRequest) {
     }
 
     const user = session.user as any;
-    const activeOrgId = session.activeOrganizationId;
+    const activeOrgId = await getActiveOrganizationId(session);
+
+    console.log("=== GET /api/collections DEBUG ===");
+    console.log("User:", user.email, "| Super Admin:", user.isSuperAdmin);
+    console.log("Active Org ID:", activeOrgId);
 
     // Require active organization for non-super admins
     if (!activeOrgId && !user.isSuperAdmin) {
@@ -81,7 +86,7 @@ export async function POST(request: NextRequest) {
     const { name, description } = validation.data;
 
     const user = session.user as any;
-    const activeOrgId = session.activeOrganizationId;
+    const activeOrgId = await getActiveOrganizationId(session);
 
     // Require active organization
     if (!activeOrgId) {

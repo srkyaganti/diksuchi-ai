@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getActiveOrganizationId } from "@/lib/org-context";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const user = session.user as any;
+    const activeOrgId = await getActiveOrganizationId(session);
 
     // Verify collection exists and user has permission
     const collection = await prisma.collection.findFirst({
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
     // Check organization access (super admins can upload to any collection)
     if (
       !user.isSuperAdmin &&
-      collection.organizationId !== session.activeOrganizationId
+      collection.organizationId !== activeOrgId
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

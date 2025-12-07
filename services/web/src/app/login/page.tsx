@@ -32,11 +32,17 @@ export default function LoginPage() {
 
       toast.success("Login successful");
 
+      const user = result.data?.user as any;
+
       // Check if user must change password
-      if ((result.data?.user as any)?.mustChangePassword) {
+      if (user?.mustChangePassword) {
         router.push("/change-password");
+      } else if (user?.isSuperAdmin) {
+        // Super admin redirects to admin panel
+        router.push("/admin");
       } else {
-        router.push("/chat");
+        // Regular users select organization
+        router.push("/select-organization");
       }
     } catch (error) {
       toast.error("An error occurred during login");

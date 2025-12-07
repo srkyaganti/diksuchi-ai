@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
 
 export default function ChangePasswordPage() {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,10 +33,15 @@ export default function ChangePasswordPage() {
     setIsSubmitting(true);
 
     try {
+      // Use custom endpoint that wraps Better Auth's change password
       const response = await fetch("/api/user/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newPassword }),
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          revokeOtherSessions: false,
+        }),
       });
 
       if (!response.ok) {
@@ -44,7 +50,14 @@ export default function ChangePasswordPage() {
       }
 
       toast.success("Password changed successfully");
-      router.push("/chat");
+
+      // Redirect based on user role
+      const user = session.user as any;
+      if (user?.isSuperAdmin) {
+        router.push("/admin");
+      } else {
+        router.push("/select-organization");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to change password");
     } finally {
@@ -62,12 +75,28 @@ export default function ChangePasswordPage() {
         <CardHeader>
           <CardTitle className="text-2xl">Change Password</CardTitle>
           <CardDescription>
-            You must change your password before continuing
+            Enter your temporary password and set a new password
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="currentPassword">Current Password</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  placeholder="Enter your temporary password"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use the temporary password provided to you
+                </p>
+              </div>
+
               <div className="grid gap-2">
                 <Label htmlFor="newPassword">New Password</Label>
                 <Input

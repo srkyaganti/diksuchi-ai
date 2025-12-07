@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { hash } from "bcryptjs";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 
@@ -111,36 +110,57 @@ export async function POST(request: NextRequest) {
 
     // Generate random password
     const temporaryPassword = generateSecurePassword();
-    const hashedPassword = await hash(temporaryPassword, 10);
 
-    // Create new user with mustChangePassword flag
-    const newUser = await prisma.user.create({
+    // Use Better Auth's sign-up API to create user with properly hashed password
+    const baseURL = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+    const signUpResponse = await fetch(`${baseURL}/api/auth/sign-up/email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        password: temporaryPassword,
+        name,
+      }),
+    });
+
+    if (!signUpResponse.ok) {
+      const errorText = await signUpResponse.text();
+      console.error("Better Auth sign-up failed:", errorText);
+      return NextResponse.json(
+        { error: "Failed to create user account" },
+        { status: 500 }
+      );
+    }
+
+    // Get the created user
+    const newUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!newUser) {
+      return NextResponse.json(
+        { error: "User created but not found" },
+        { status: 500 }
+      );
+    }
+
+    // Update user with mustChangePassword flag and verify email
+    await prisma.user.update({
+      where: { id: newUser.id },
+      data: {
+        mustChangePassword: true,
+        emailVerified: true, // Auto-verify in offline environment
+      },
+    });
+
+    // Add user to organization
+    await prisma.member.create({
       data: {
         id: Math.random().toString(36).substring(7),
-        email,
-        name,
-        emailVerified: true, // Auto-verify in offline environment
-        mustChangePassword: true,
+        userId: newUser.id,
+        organizationId,
+        role,
         createdAt: new Date(),
-        updatedAt: new Date(),
-        accounts: {
-          create: {
-            id: Math.random().toString(36).substring(7),
-            accountId: email,
-            providerId: "credential",
-            password: hashedPassword,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        },
-        members: {
-          create: {
-            id: Math.random().toString(36).substring(7),
-            organizationId,
-            role,
-            createdAt: new Date(),
-          },
-        },
       },
     });
 

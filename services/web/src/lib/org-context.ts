@@ -14,6 +14,22 @@ export async function getUserOrganizations(userId: string): Promise<Organization
 }
 
 /**
+ * Get the active organization ID from a Better Auth session
+ * Better Auth doesn't expose custom session fields, so we read from DB
+ */
+export async function getActiveOrganizationId(session: any): Promise<string | null> {
+  const sessionId = session?.session?.id;
+  if (!sessionId) return null;
+
+  const dbSession = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: { activeOrganizationId: true },
+  });
+
+  return dbSession?.activeOrganizationId || null;
+}
+
+/**
  * Get the active organization from a session token
  */
 export async function getActiveOrganization(

@@ -21,11 +21,13 @@ interface Collection {
 interface CollectionSelectorProps {
   onSelect: (collectionId: string) => void;
   defaultValue?: string;
+  orgSlug?: string; // Organization slug for context-aware links
 }
 
 export function CollectionSelector({
   onSelect,
   defaultValue,
+  orgSlug,
 }: CollectionSelectorProps) {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,10 +91,13 @@ export function CollectionSelector({
   }
 
   if (collections.length === 0) {
+    // Use org-specific data library if orgSlug is provided, otherwise use global
+    const dataLibraryUrl = orgSlug ? `/org/${orgSlug}/data-library` : "/data-library";
+
     return (
       <div className="flex items-center justify-between gap-2 px-3 py-2 bg-yellow-50 rounded-md">
         <span className="text-sm text-yellow-600">No collections found. Create one to get started.</span>
-        <Link href="/data-library">
+        <Link href={dataLibraryUrl}>
           <Button size="sm" variant="outline" className="whitespace-nowrap">
             Go to Data Library
           </Button>

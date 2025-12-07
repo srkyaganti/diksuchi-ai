@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getActiveOrganizationId } from "@/lib/org-context";
 import { z } from "zod";
 
 const updateCollectionSchema = z.object({
@@ -25,6 +26,7 @@ export async function GET(
 
     const { id } = await params;
     const user = session.user as any;
+    const activeOrgId = await getActiveOrganizationId(session);
 
     const collection = await prisma.collection.findUnique({
       where: { id },
@@ -47,7 +49,7 @@ export async function GET(
     // Check organization access (super admins can access any collection)
     if (
       !user.isSuperAdmin &&
-      collection.organizationId !== session.activeOrganizationId
+      collection.organizationId !== activeOrgId
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -79,6 +81,7 @@ export async function PUT(
 
     const { id } = await params;
     const user = session.user as any;
+    const activeOrgId = await getActiveOrganizationId(session);
 
     // Check if collection exists and user has permission
     const existingCollection = await prisma.collection.findUnique({
@@ -95,7 +98,7 @@ export async function PUT(
     // Check organization access (super admins can update any collection)
     if (
       !user.isSuperAdmin &&
-      existingCollection.organizationId !== session.activeOrganizationId
+      existingCollection.organizationId !== activeOrgId
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -149,6 +152,7 @@ export async function DELETE(
 
     const { id } = await params;
     const user = session.user as any;
+    const activeOrgId = await getActiveOrganizationId(session);
 
     // Check if collection exists and user has permission
     const existingCollection = await prisma.collection.findUnique({
@@ -165,7 +169,7 @@ export async function DELETE(
     // Check organization access (super admins can delete any collection)
     if (
       !user.isSuperAdmin &&
-      existingCollection.organizationId !== session.activeOrganizationId
+      existingCollection.organizationId !== activeOrgId
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
