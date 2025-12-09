@@ -68,7 +68,7 @@ export class PythonRAGClient {
   constructor(
     workerUrl: string = PYTHON_WORKER_URL,
     retrievalUrl: string = PYTHON_RETRIEVAL_URL,
-    timeout: number = 30000
+    timeout: number = 120000 // 2 minutes for RAG operations (embedding + retrieval + reranking)
   ) {
     this.workerUrl = workerUrl;
     this.retrievalUrl = retrievalUrl;
