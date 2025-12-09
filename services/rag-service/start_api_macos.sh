@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# RAG Service Startup Script for macOS
-# Runs both uvicorn server AND rq worker simultaneously
+# RAG Service API Startup Script for macOS
+# Runs FastAPI server only
 
 PROJECT_ROOT="/Users/srikaryaganti/workspaces/drdo/diksuchi-ai"
 SERVICE_DIR="$PROJECT_ROOT/services/rag-service"
@@ -53,30 +53,8 @@ if [ ! -f "models/bge-m3.gguf" ]; then
     echo "Please download from: https://huggingface.co/lm-kit/bge-m3-gguf"
 fi
 
-# Start uvicorn in background
+# Start FastAPI server
 echo "Starting RAG Service API on port 5001..."
 python main.py
-#uvicorn main:app --host 0.0.0.0 --port 5001 &
-#UVICORN_PID=$!
-echo "Started RAG Service API on port 5001..."
 
-# Wait for API to be ready
-sleep 5
-
-# Start RQ worker
-echo "Starting RQ Worker..."
-python worker.py &
-WORKER_PID=$!
-
-echo "RAG Service started successfully!"
-echo "  API PID: $UVICORN_PID"
-echo "  Worker PID: $WORKER_PID"
-echo "  API URL: http://localhost:5001"
-echo ""
-echo "Press Ctrl+C to stop both processes"
-
-# Trap signals to gracefully shutdown both processes
-trap "echo 'Stopping RAG Service...'; kill $UVICORN_PID $WORKER_PID 2>/dev/null; exit" SIGINT SIGTERM
-
-# Wait for both processes
-wait
+trap "echo 'Stopping RAG Service API...'; exit" SIGINT SIGTERM

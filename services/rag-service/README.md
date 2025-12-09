@@ -6,7 +6,7 @@ Advanced RAG (Retrieval-Augmented Generation) service with hybrid retrieval, kno
 
 - **S1000D XML Parsing**: Native support for defense technical documentation
 - **Hybrid Retrieval**: Combines vector search (ChromaDB), keyword search (BM25), and knowledge graph traversal
-- **LlamaParse Integration**: Premium PDF parsing with table extraction
+- **Offline PDF Parsing**: Local pdfplumber-based parsing with no internet required
 - **Cross-Encoder Reranking**: Improves retrieval precision using BAAI/bge-reranker-v2-m3
 - **Knowledge Graphs**: NetworkX-based graph database for contextual relationships
 - **Background Job Processing**: RQ (Redis Queue) for async document processing
@@ -45,24 +45,21 @@ pip install -r requirements.txt
 
 ### 2. Download Embedding Model
 
-Download the BGE-M3 GGUF model (~2GB):
+Download the BGE-M3 embedding model for offline use (~1.5-2.5GB):
 
 ```bash
-# Create models directory
-mkdir -p models
-
-# Download using huggingface-cli
-huggingface-cli download \
-  mradermacher/bge-m3-gguf \
-  bge-m3.Q8_0.gguf \
-  --local-dir models \
-  --local-dir-use-symlinks False
-
-# Rename for consistency
-mv models/bge-m3.Q8_0.gguf models/bge-m3.gguf
+# Run the download script (requires internet connection, one-time only)
+python download_sentence_model.py
 ```
 
-**Alternative**: Manual download from [Hugging Face](https://huggingface.co/mradermacher/bge-m3-gguf)
+This downloads the sentence-transformers BGE-M3 model to `models/bge-m3/` for offline use.
+
+**What's downloaded:**
+- Full precision BGE-M3 model (BAAI/bge-m3) from Hugging Face
+- Tokenizer and configuration files
+- ~1.5-2.5GB of model weights
+
+**After first download**: No internet required, model runs completely offline from local cache.
 
 ### 3. Environment Variables
 
@@ -79,10 +76,7 @@ Required variables:
 - `OLLAMA_BASE_URL`: Ollama server URL (if using Ollama)
 - `NEXTJS_CALLBACK_URL`: Next.js app URL for callbacks
 - `NEXTJS_API_SECRET`: Shared secret for callback authentication
-- `EMBEDDING_MODEL_PATH`: Path to BGE-M3 GGUF model
-
-Optional:
-- `LLAMAPARSE_API_KEY`: For advanced PDF parsing ([Get API key](https://cloud.llamaindex.ai/))
+- `EMBEDDING_MODEL_PATH`: Path to BGE-M3 sentence-transformers model directory (default: `models/bge-m3`)
 
 ## Running Locally
 
@@ -124,7 +118,7 @@ Expected response:
   "status": "healthy",
   "service": "diksuchi-rag-service",
   "redis": "connected",
-  "embedding_model": "models/bge-m3.gguf"
+  "embedding_model": "models/bge-m3"
 }
 ```
 
@@ -210,7 +204,7 @@ Health check endpoint.
 
 ## Supported File Formats
 
-- **PDF**: Parsed using LlamaParse or pdf-parse
+- **PDF**: Parsed using local pdfplumber (offline, no internet required)
 - **S1000D XML**: Custom parser for defense documentation
 - **Plain Text**: Direct ingestion with chunking
 
@@ -219,12 +213,12 @@ Health check endpoint.
 1. **Document Loading**: Extract text from PDF/XML/TXT
 2. **Chunking**:
    - S1000D: Uses native section boundaries
-   - PDF: Markdown-aware splitting (1000 chars, 200 overlap)
-3. **Embedding**: BGE-M3 GGUF model via llama-cpp-python
+   - PDF: Recursive character splitting (1000 chars, 200 overlap)
+3. **Embedding**: BGE-M3 model via sentence-transformers (offline, pure Python, auto-detects device)
 4. **Storage**:
-   - ChromaDB: Vector embeddings
+   - ChromaDB: Vector embeddings (collection-specific)
    - NetworkX + SQLite: Knowledge graph
-   - BM25S: Keyword index
+   - BM25S: Keyword index (collection-specific)
 5. **Callback**: Notify Next.js of completion
 
 ## Retrieval Pipeline
@@ -240,9 +234,12 @@ Health check endpoint.
 
 ### Model Not Found Error
 ```
-FileNotFoundError: Model not found: models/bge-m3.gguf
+FileNotFoundError: Model not found: models/bge-m3
 ```
-**Solution**: Download the model following instructions in "Download Embedding Model" section.
+**Solution**: Download the model using:
+```bash
+python download_sentence_model.py
+```
 
 ### ChromaDB Connection Error
 ```
@@ -256,14 +253,14 @@ redis.exceptions.ConnectionError
 ```
 **Solution**: Ensure Redis is running and accessible.
 
-### llama-cpp-python Build Error
-**Solution**: Install build dependencies:
+### Sentence-transformers Installation Error
+**Solution**: If you encounter issues installing sentence-transformers:
 ```bash
-# Ubuntu/Debian
-apt-get install build-essential cmake libopenblas-dev
+# Upgrade pip and setuptools
+pip install --upgrade pip setuptools wheel
 
-# macOS
-brew install cmake
+# Install sentence-transformers
+pip install -r requirements.txt
 ```
 
 ## Development
@@ -303,18 +300,20 @@ rq info -u redis://localhost:6379
 
 ## Performance Tuning
 
-### CPU vs GPU
+### Hardware Acceleration
 
 The worker auto-detects available hardware:
-- **CPU**: Uses llama-cpp-python with OpenBLAS
-- **GPU (CUDA)**: Set `CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python`
-- **GPU (Metal/Mac)**: Automatically uses Metal backend
+- **CPU**: Falls back to CPU computation (slowest)
+- **CUDA (NVIDIA GPU)**: Auto-detected if CUDA is available
+- **Metal (Apple Silicon)**: Auto-detected on macOS with Metal support (recommended)
 
-### Embedding Model Quantization
+Device auto-detection happens in `SentenceTransformerEmbeddingFunction.__init__()`.
 
-- **Q8_0** (recommended): Best quality/speed balance
-- **Q4_K_M**: Faster, less memory, slightly lower quality
-- **F16**: Highest quality, slower, 2x size
+### Memory Requirements
+
+- **Full precision BGE-M3**: ~1.5-2.5GB model size
+- **RAM during processing**: ~8-16GB recommended for production
+- **GPU VRAM**: 4GB+ for CUDA acceleration
 
 ### Concurrency
 

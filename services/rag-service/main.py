@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 NEXTJS_CALLBACK_URL = os.getenv("NEXTJS_CALLBACK_URL", "http://localhost:3000")
-NEXTJS_API_SECRET = os.getenv("NEXTJS_API_SECRET", "")
-EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", "models/bge-m3.gguf")
+NEXTJS_API_SECRET = os.getenv("NEXTJS_API_SECRET", "V4M73S6UetRTScIyQRfQCfNqG17HYESjMeh4T5XOBDQ=")
+EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", "models/bge-m3")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -332,7 +332,9 @@ async def startup_event():
     # Verify embedding model exists
     if not os.path.exists(EMBEDDING_MODEL_PATH):
         logger.warning(f"⚠️  Embedding model not found at {EMBEDDING_MODEL_PATH}")
-        logger.warning("Please download BGE-M3 GGUF model before processing documents")
+        logger.warning("Please run: python download_sentence_model.py")
+    elif not os.path.isdir(EMBEDDING_MODEL_PATH):
+        logger.error(f"❌ EMBEDDING_MODEL_PATH must be a directory, not a file: {EMBEDDING_MODEL_PATH}")
 
 @app.on_event("shutdown")
 async def shutdown_event():

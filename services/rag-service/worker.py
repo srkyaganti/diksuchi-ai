@@ -6,6 +6,7 @@ import os
 import sys
 import logging
 import asyncio
+import time
 from datetime import datetime
 from typing import Dict, Any
 import httpx
@@ -27,8 +28,8 @@ logger = logging.getLogger(__name__)
 
 # Environment variables
 NEXTJS_CALLBACK_URL = os.getenv("NEXTJS_CALLBACK_URL", "http://localhost:3000")
-NEXTJS_API_SECRET = os.getenv("NEXTJS_API_SECRET", "")
-EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", "models/bge-m3.gguf")
+NEXTJS_API_SECRET = os.getenv("NEXTJS_API_SECRET", "V4M73S6UetRTScIyQRfQCfNqG17HYESjMeh4T5XOBDQ=")
+EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", "models/bge-m3")
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 # Global pipeline instance (lazy-loaded)
@@ -131,6 +132,9 @@ def process_document_job(job_data: Dict[str, Any]):
     logger.info(f"MIME Type: {mime_type}")
     logger.info("=" * 60)
 
+    job_start_time = time.time()
+    logger.info(f"Job start timestamp: {job_start_time}")
+
     try:
         # Update status to processing
         asyncio.run(update_file_status(file_id, "processing"))
@@ -180,6 +184,8 @@ def process_document_job(job_data: Dict[str, Any]):
             processed_at=processed_at
         ))
 
+        job_duration = time.time() - job_start_time
+        logger.info(f"Processing completed in {job_duration:.2f} seconds")
         logger.info(f"✓ Successfully processed document: {file_name}")
 
         return {
@@ -285,7 +291,11 @@ def main():
     # Verify embedding model exists
     if not os.path.exists(EMBEDDING_MODEL_PATH):
         logger.error(f"❌ Embedding model not found at {EMBEDDING_MODEL_PATH}")
-        logger.error("Please download BGE-M3 GGUF model before starting worker")
+        logger.error("Please run: python download_sentence_model.py")
+        sys.exit(1)
+    elif not os.path.isdir(EMBEDDING_MODEL_PATH):
+        logger.error(f"❌ EMBEDDING_MODEL_PATH must be a directory: {EMBEDDING_MODEL_PATH}")
+        logger.error("Current value points to a file. Expected directory containing sentence-transformers model.")
         sys.exit(1)
 
     try:
@@ -296,18 +306,41 @@ def main():
         logger.error(f"❌ Failed to connect to Redis: {e}")
         sys.exit(1)
 
-    # Create worker with queue
-    worker = Worker(
-        ["document-processing"],
-        connection=redis_conn,
-        name="rag-worker"
-    )
-
-    logger.info("✓ Worker initialized, listening for jobs...")
+    # SYNCHRONOUS MODE: Process jobs directly in main thread (no subprocess forking)
+    logger.info("✓ Worker initialized (SYNCHRONOUS MODE), listening for jobs...")
     logger.info("=" * 60)
 
-    # Start working
-    worker.work(with_scheduler=True, logging_level="INFO")
+    from rq import Queue
+    from rq.job import Job
+
+    queue = Queue("document-processing", connection=redis_conn)
+
+    # Continuously poll and process jobs synchronously
+    while True:
+        try:
+            # Get job ID from Redis queue list
+            job_id = redis_conn.lpop("rq:queue:document-processing")
+
+            if job_id:
+                job_id = job_id.decode('utf-8') if isinstance(job_id, bytes) else job_id
+                logger.info(f"Processing job: {job_id}")
+
+                # Fetch and execute job directly in this process (synchronous)
+                try:
+                    job = Job.fetch(job_id, connection=redis_conn)
+                    job.set_status("started")
+                    job.perform()
+                    job.set_status("finished")
+                    logger.info(f"✓ Job completed: {job_id}")
+                except Exception as job_error:
+                    logger.error(f"Job failed: {job_error}", exc_info=True)
+                    job.set_status("failed")
+            else:
+                # No jobs - sleep briefly and check again
+                time.sleep(1)
+        except Exception as e:
+            logger.error(f"Error in job loop: {e}", exc_info=True)
+            time.sleep(1)
 
 
 if __name__ == "__main__":

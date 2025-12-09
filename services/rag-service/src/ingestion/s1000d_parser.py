@@ -32,8 +32,8 @@ class S1000DParser:
             
             # 3. Extract References
             references = self._extract_references(root)
-            
-            return {
+
+            result = {
                 "dm_id": dm_ident,
                 "title": title,
                 "content_blocks": content_blocks,
@@ -42,6 +42,9 @@ class S1000DParser:
                     "schema_ver": root.attrib.get("noNamespaceSchemaLocation", "unknown")
                 }
             }
+            logger.info(f"✓ Successfully parsed S1000D: {xml_path}")
+            logger.info(f"  Title: {title}, Content Blocks: {len(content_blocks)}, References: {len(references)}")
+            return result
             
         except Exception as e:
             logger.error(f"Failed to parse {xml_path}: {str(e)}")
