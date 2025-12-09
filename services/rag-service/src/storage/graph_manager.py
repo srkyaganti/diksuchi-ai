@@ -55,7 +55,7 @@ class LocalGraph:
         """Add or update a node."""
         if metadata is None:
             metadata = {}
-            
+
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -63,6 +63,7 @@ class LocalGraph:
                 (node_id, node_type, content, json.dumps(metadata))
             )
             conn.commit()
+        logger.debug(f"Added node: {node_id} (type: {node_type}) to knowledge graph")
 
     def add_edge(self, source_id: str, target_id: str, relation: str, weight: float = 1.0):
         """Add a directed edge."""
@@ -75,6 +76,7 @@ class LocalGraph:
                 (source_id, target_id, relation, weight)
             )
             conn.commit()
+        logger.debug(f"Added reference edge: {source_id} -> {target_id} (relation: {relation})")
 
     def get_neighbors(self, node_id: str, relation: str = None) -> List[Dict]:
         """Get neighboring nodes, optionally filtered by relation type."""

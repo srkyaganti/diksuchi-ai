@@ -4,7 +4,7 @@ import logging
 import os
 from typing import List, Dict, Any
 from src.storage.graph_manager import LocalGraph
-from src.embeddings.llama_embeddings import LlamaCppEmbeddingFunction
+from src.embeddings.sentence_transformer_embeddings import SentenceTransformerEmbeddingFunction
 
 logger = logging.getLogger(__name__)
 
@@ -14,14 +14,16 @@ class HybridRetriever:
     Now supports collection-specific retrieval for data isolation.
     """
 
-    def __init__(self, embedding_model_path: str = "models/bge-m3.gguf"):
+    def __init__(self, embedding_model_path: str = "models/bge-m3"):
         # 1. Vector Store Client (collections accessed per-query)
         self.chroma_client = chromadb.PersistentClient(path="data/chroma_db")
 
         if not os.path.exists(embedding_model_path):
              raise FileNotFoundError(f"Embedding model not found at {embedding_model_path}")
 
-        self.embedding_fn = LlamaCppEmbeddingFunction(model_path=embedding_model_path)
+        self.embedding_fn = SentenceTransformerEmbeddingFunction(
+            model_name_or_path=embedding_model_path
+        )
 
         # Don't create a default collection - collections are accessed per query
         # This ensures data isolation between organizations
