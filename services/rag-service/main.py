@@ -233,13 +233,24 @@ async def retrieve_context(request: RetrieveRequest):
 
     Supports conversational retrieval when chatHistory is provided.
     """
+    import time
+
     try:
+        request_start = time.time()
+        logger.info("=" * 70)
+        logger.info(f"📥 Retrieval Request: collection={request.collectionId}, query='{request.query[:60]}...'")
+        logger.info(f"   Options: limit={request.limit}, rerank={request.rerank}, conversational={request.useConversationalRetrieval}")
+
         # Check if conversational retrieval is requested
         if request.useConversationalRetrieval and request.chatHistory:
-            logger.info(f"Using conversational retrieval with {len(request.chatHistory)} history messages")
+            logger.info(f"🔄 Using conversational retrieval with {len(request.chatHistory)} history messages")
+            conv_start = time.time()
 
             # Get conversational retriever
+            retriever_load_start = time.time()
             conv_retriever = get_conversational_retriever()
+            retriever_load_time = time.time() - retriever_load_start
+            logger.info(f"   [Retriever] Loaded in {retriever_load_time:.3f}s")
 
             # Convert chat history to dict format
             chat_history = [
@@ -248,6 +259,7 @@ async def retrieve_context(request: RetrieveRequest):
             ]
 
             # Perform conversation-aware retrieval (collection-specific)
+            search_start = time.time()
             results = conv_retriever.retrieve_with_history(
                 current_query=request.query,
                 collection_id=request.collectionId,
@@ -256,34 +268,54 @@ async def retrieve_context(request: RetrieveRequest):
                 rerank=request.rerank,
                 conversation_depth=request.conversationDepth
             )
+            search_time = time.time() - search_start
+            logger.info(f"   [Search] Completed in {search_time:.3f}s, found {len(results)} results")
+
+            conv_total = time.time() - conv_start
+            logger.info(f"   [Total Conversational] {conv_total:.3f}s")
         else:
             # Standard hybrid retrieval (collection-specific)
-            logger.info(f"Performing standard hybrid search for collection {request.collectionId}, query: {request.query[:50]}...")
+            logger.info(f"🔍 Performing standard hybrid search")
+            hybrid_start = time.time()
 
             # Get retriever instance
+            retriever_load_start = time.time()
             retriever = get_retriever()
+            retriever_load_time = time.time() - retriever_load_start
+            logger.info(f"   [Retriever] Loaded in {retriever_load_time:.3f}s")
 
             # Perform hybrid search with collection isolation
+            search_start = time.time()
             results = retriever.search(
                 query=request.query,
                 collection_id=request.collectionId,
                 k=request.limit
             )
+            search_time = time.time() - search_start
+            logger.info(f"   [Hybrid Search] Completed in {search_time:.3f}s, found {len(results)} results")
 
             # Optional reranking
             if request.rerank and results:
-                logger.info("Applying cross-encoder reranking...")
+                logger.info(f"   [Reranking] Applying cross-encoder reranking on {len(results)} results...")
+                rerank_start = time.time()
                 reranker = get_reranker()
                 results = reranker.rerank(
                     query=request.query,
                     results=results,
                     top_k=request.limit
                 )
+                rerank_time = time.time() - rerank_start
+                logger.info(f"   [Reranking] Completed in {rerank_time:.3f}s, final {len(results)} results")
             else:
                 # Just take top k if no reranking
                 results = results[:request.limit]
+                logger.info(f"   [No Reranking] Using top {len(results)} results")
+
+            hybrid_total = time.time() - hybrid_start
+            logger.info(f"   [Total Hybrid] {hybrid_total:.3f}s")
 
         # Format results for Next.js
+        format_start = time.time()
         formatted_results = []
         for result in results:
             formatted_results.append(RetrieveResult(
@@ -293,6 +325,12 @@ async def retrieve_context(request: RetrieveRequest):
                 similarity=result['score'],
                 metadata=result.get('metadata', {})
             ))
+        format_time = time.time() - format_start
+        logger.info(f"   [Formatting] {format_time:.3f}s")
+
+        total_time = time.time() - request_start
+        logger.info(f"✓ Retrieval completed in {total_time:.3f}s")
+        logger.info("=" * 70)
 
         return RetrieveResponse(
             results=formatted_results,
@@ -300,7 +338,7 @@ async def retrieve_context(request: RetrieveRequest):
         )
 
     except Exception as e:
-        logger.error(f"Retrieval failed: {e}", exc_info=True)
+        logger.error(f"❌ Retrieval failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Retrieval failed: {str(e)}")
 
 @app.get("/")
@@ -321,20 +359,66 @@ async def root():
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    """Application startup tasks."""
-    logger.info("=" * 50)
+    """Application startup tasks with model warmup."""
+    import time
+
+    logger.info("=" * 70)
     logger.info("RAG Worker API Starting...")
     logger.info(f"Redis: {REDIS_HOST}:{REDIS_PORT}")
     logger.info(f"Embedding Model: {EMBEDDING_MODEL_PATH}")
     logger.info(f"Callback URL: {NEXTJS_CALLBACK_URL}")
-    logger.info("=" * 50)
+    logger.info("=" * 70)
 
     # Verify embedding model exists
     if not os.path.exists(EMBEDDING_MODEL_PATH):
         logger.warning(f"⚠️  Embedding model not found at {EMBEDDING_MODEL_PATH}")
         logger.warning("Please run: python download_sentence_model.py")
+        return
     elif not os.path.isdir(EMBEDDING_MODEL_PATH):
         logger.error(f"❌ EMBEDDING_MODEL_PATH must be a directory, not a file: {EMBEDDING_MODEL_PATH}")
+        return
+
+    logger.info("⏳ Warming up models during startup...")
+    startup_start = time.time()
+
+    # 1. Initialize HybridRetriever (includes embedding model)
+    try:
+        logger.info("  [1/3] Loading Embedding Model (Sentence Transformer)...")
+        retriever_start = time.time()
+        retriever = get_retriever()
+        retriever_time = time.time() - retriever_start
+        logger.info(f"  ✓ Embedding Model loaded in {retriever_time:.2f}s")
+    except Exception as e:
+        logger.error(f"  ✗ Failed to load Embedding Model: {e}")
+        return
+
+    # 2. Initialize Reranker
+    try:
+        logger.info("  [2/3] Loading Reranker Model (cross-encoder)...")
+        reranker_start = time.time()
+        reranker = get_reranker()
+        reranker_time = time.time() - reranker_start
+        logger.info(f"  ✓ Reranker loaded in {reranker_time:.2f}s")
+    except Exception as e:
+        logger.error(f"  ✗ Failed to load Reranker: {e}")
+        # Don't return - reranking is optional
+
+    # 3. Initialize ConversationalRetriever
+    try:
+        logger.info("  [3/3] Loading Conversational Retriever...")
+        conv_retriever_start = time.time()
+        conv_retriever = get_conversational_retriever()
+        conv_retriever_time = time.time() - conv_retriever_start
+        logger.info(f"  ✓ Conversational Retriever loaded in {conv_retriever_time:.2f}s")
+    except Exception as e:
+        logger.error(f"  ✗ Failed to load Conversational Retriever: {e}")
+        # Don't return - conversational retrieval is optional
+
+    total_startup_time = time.time() - startup_start
+    logger.info("=" * 70)
+    logger.info(f"✓ RAG Service startup complete in {total_startup_time:.2f}s")
+    logger.info("  Models are warmed up and ready for requests")
+    logger.info("=" * 70)
 
 @app.on_event("shutdown")
 async def shutdown_event():
