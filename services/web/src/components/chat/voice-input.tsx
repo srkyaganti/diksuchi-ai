@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, StopCircle } from "lucide-react";
+import { Mic, StopCircle, CheckCircle, XCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 
 interface OnTranscribedProps {
@@ -18,9 +18,12 @@ interface VoiceInputProps {
 export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const wavBlobRef = useRef<Blob | null>(null);
 
   const startRecording = useCallback(async () => {
     try {
@@ -58,39 +61,26 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
           size: audioBlob.size,
         });
 
-        // Send for transcription
-        setIsProcessing(true);
         try {
           // Convert to WAV format before sending
-          const wavBlob = await convertToWav(audioBlob);
+          const wav = await convertToWav(audioBlob);
           console.log("Converted to WAV:", {
-            size: wavBlob.size,
-            type: wavBlob.type,
+            size: wav.size,
+            type: wav.type,
           });
 
-          const formData = new FormData();
-          formData.append("audio", wavBlob);
+          // Store WAV blob and create URL for preview
+          wavBlobRef.current = wav;
+          const url = URL.createObjectURL(wav);
+          setAudioUrl(url);
+          setIsReviewing(true);
 
-          const response = await fetch("/api/voice/transcribe", {
-            method: "POST",
-            body: formData,
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to transcribe audio");
-          }
-
-          const data = await response.json();
-          onTranscribed({ text: data.text, languageCode: data.languageCode });
-          toast.success("Audio transcribed successfully");
+          // Clean up stream
+          stream.getTracks().forEach((track) => track.stop());
         } catch (error) {
           const message =
-            error instanceof Error ? error.message : "Transcription failed";
+            error instanceof Error ? error.message : "Failed to process audio";
           toast.error(message);
-        } finally {
-          setIsProcessing(false);
-
-          // Clean up
           stream.getTracks().forEach((track) => track.stop());
         }
       };
@@ -113,28 +103,131 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
     }
   }, [isRecording]);
 
+  const approveAndTranscribe = useCallback(async () => {
+    if (!wavBlobRef.current) return;
+
+    setIsProcessing(true);
+    setIsReviewing(false);
+    try {
+      const formData = new FormData();
+      formData.append("audio", wavBlobRef.current);
+
+      const response = await fetch("/api/voice/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to transcribe audio");
+      }
+
+      const data = await response.json();
+      onTranscribed({ text: data.text, languageCode: data.languageCode });
+      toast.success("Audio transcribed successfully");
+
+      // Clean up
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+        setAudioUrl(null);
+      }
+      wavBlobRef.current = null;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Transcription failed";
+      toast.error(message);
+      setIsReviewing(true);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [audioUrl, onTranscribed]);
+
+  const cancelAndRerecord = useCallback(() => {
+    setIsReviewing(false);
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+      setAudioUrl(null);
+    }
+    wavBlobRef.current = null;
+    toast.info("Recording cancelled. Click Record to try again.");
+  }, [audioUrl]);
+
+  const downloadAudio = useCallback(() => {
+    if (!audioUrl) return;
+
+    const a = document.createElement("a");
+    a.href = audioUrl;
+    a.download = `recording_${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.wav`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }, [audioUrl]);
+
   return (
-    <div className="flex gap-2">
-      {!isRecording ? (
-        <Button
-          onClick={startRecording}
-          disabled={isDisabled || isProcessing}
-          size="sm"
-          variant="secondary"
-        >
-          <Mic className="w-4 h-4 mr-2" />
-          {isProcessing ? "Processing..." : "Record"}
-        </Button>
-      ) : (
-        <Button
-          onClick={stopRecording}
-          size="sm"
-          variant="destructive"
-          className="animate-pulse"
-        >
-          <StopCircle className="w-4 h-4 mr-2" />
-          Stop Recording
-        </Button>
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-2">
+        {!isRecording && !isReviewing ? (
+          <Button
+            onClick={startRecording}
+            disabled={isDisabled || isProcessing}
+            size="sm"
+            variant="secondary"
+          >
+            <Mic className="w-4 h-4 mr-2" />
+            {isProcessing ? "Processing..." : "Record"}
+          </Button>
+        ) : isRecording ? (
+          <Button
+            onClick={stopRecording}
+            size="sm"
+            variant="destructive"
+            className="animate-pulse"
+          >
+            <StopCircle className="w-4 h-4 mr-2" />
+            Stop Recording
+          </Button>
+        ) : null}
+      </div>
+
+      {isReviewing && audioUrl && (
+        <div className="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            Preview your recording:
+          </p>
+          <audio
+            src={audioUrl}
+            controls
+            className="w-full h-8"
+          />
+          <div className="flex gap-2">
+            <Button
+              onClick={approveAndTranscribe}
+              disabled={isProcessing}
+              size="sm"
+              variant="default"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              {isProcessing ? "Transcribing..." : "Transcribe"}
+            </Button>
+            <Button
+              onClick={cancelAndRerecord}
+              disabled={isProcessing}
+              size="sm"
+              variant="outline"
+            >
+              <XCircle className="w-4 h-4 mr-2" />
+              Re-record
+            </Button>
+            <Button
+              onClick={downloadAudio}
+              disabled={isProcessing}
+              size="sm"
+              variant="ghost"
+              title="Download audio file"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -157,10 +250,8 @@ async function convertToWav(blob: Blob): Promise<Blob> {
     // Convert AudioBuffer to WAV
     const wavBuffer = audioBufferToWav(audioBuffer);
 
-    // Create blob from WAV buffer
-    const wavBlob = new Blob([wavBuffer], { type: "audio/wav" });
-
-    return wavBlob;
+    // Create and return blob from WAV buffer
+    return new Blob([wavBuffer], { type: "audio/wav" });
   } catch (error) {
     console.error("Error converting to WAV:", error);
     throw new Error("Failed to convert audio to WAV format");
