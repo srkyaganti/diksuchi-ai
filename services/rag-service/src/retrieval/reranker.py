@@ -21,21 +21,55 @@ class Reranker:
     def rerank(self, query: str, results: List[Dict], top_k: int = 5) -> List[Dict]:
         """
         Reranks a list of results based on relevance to the query.
+
+        PHASE 1: Safety-constrained reranking
+        - Separates safety-critical items from normal results
+        - Only reranks normal results with cross-encoder
+        - Preserves safety items in top positions
+        - Returns safety items first, then reranked normal items
         """
         if not results:
             return []
 
-        # Prepare pairs for the model: (query, document_text)
-        pairs = [[query, res['content']] for res in results]
-        
-        # Predict scores
-        scores = self.model.predict(pairs)
-        
-        # Update scores in result objects
-        for i, res in enumerate(results):
-            res['score'] = float(scores[i]) # Convert numpy float to python float
-            
-        # Sort by new score
-        results.sort(key=lambda x: x['score'], reverse=True)
-        
-        return results[:top_k]
+        # PHASE 1: Safety-constrained reranking
+        # Separate safety-critical from normal results
+        safety_results = [r for r in results if r.get("is_safety_critical", False)]
+        normal_results = [r for r in results if not r.get("is_safety_critical", False)]
+
+        logger.info(
+            f"Reranking: {len(safety_results)} safety items + {len(normal_results)} normal items"
+        )
+
+        # Rerank ONLY normal results
+        if normal_results:
+            # Prepare pairs for the model: (query, document_text)
+            pairs = [[query, res['content']] for res in normal_results]
+
+            # Predict scores
+            scores = self.model.predict(pairs)
+
+            # Update scores in result objects
+            for i, res in enumerate(normal_results):
+                res['score'] = float(scores[i])  # Convert numpy float to python float
+
+            # Sort normal results by new score
+            normal_results.sort(key=lambda x: x['score'], reverse=True)
+
+            logger.debug(
+                f"Reranked {len(normal_results)} normal results. "
+                f"Top score: {normal_results[0]['score']:.3f}"
+            )
+
+        # PHASE 1: Safety-first merge strategy
+        # Combine: Safety items first (never demoted), then reranked normal items
+        num_safety = len(safety_results)
+        num_normal_slots = max(0, top_k - num_safety)
+
+        final_results = safety_results + normal_results[:num_normal_slots]
+
+        logger.info(
+            f"Final ranking: {num_safety} safety items + {len(normal_results[:num_normal_slots])} "
+            f"normal items = {len(final_results)} results"
+        )
+
+        return final_results[:top_k]

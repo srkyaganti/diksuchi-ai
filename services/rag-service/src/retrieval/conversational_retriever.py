@@ -63,31 +63,47 @@ class ConversationalRetriever:
         Returns:
             List of retrieval results with scores and metadata
         """
+        import time
+        conv_start = time.time()
+
         # Step 1: Build contextualized query
+        context_start = time.time()
         contextualized_query = self._build_contextualized_query(
             current_query,
             chat_history,
             conversation_depth
         )
-
-        logger.info(f"Original query: '{current_query}'")
-        logger.info(f"Contextualized: '{contextualized_query}'")
+        context_time = time.time() - context_start
+        logger.info(f"    ├─ Contextualize query: {context_time:.3f}s")
+        logger.info(f"      Original: '{current_query}'")
+        logger.info(f"      Contextualized: '{contextualized_query}'")
 
         # Step 2: Optional query refinement (expand acronyms, add synonyms)
         refined_query = contextualized_query
+        refine_time = 0
         if self.query_agent:
+            refine_start = time.time()
             refined_query = self.query_agent.refine_query(contextualized_query)
-            logger.info(f"Refined query: '{refined_query}'")
+            refine_time = time.time() - refine_start
+            logger.info(f"    ├─ Refine query: {refine_time:.3f}s")
+            logger.info(f"      Refined: '{refined_query}'")
+        else:
+            logger.info(f"    ├─ Refine query: skipped (no query agent)")
 
         # Step 3: Hybrid retrieval with expanded results pool (collection-specific)
+        search_start = time.time()
         results = self.hybrid_retriever.search(
             query=refined_query,
             collection_id=collection_id,
             k=k
         )
+        search_time = time.time() - search_start
+        logger.info(f"    ├─ Hybrid search: {search_time:.3f}s ({len(results)} results)")
 
         # Step 4: Conversation-aware reranking
+        rerank_time = 0
         if rerank and results:
+            rerank_start = time.time()
             # Build context-aware query for reranking
             rerank_query = self._build_reranking_query(
                 current_query,
@@ -100,6 +116,13 @@ class ConversationalRetriever:
                 results=results,
                 top_k=k
             )
+            rerank_time = time.time() - rerank_start
+            logger.info(f"    └─ Conversation-aware reranking: {rerank_time:.3f}s ({len(results)} final results)")
+        else:
+            logger.info(f"    └─ Reranking: skipped")
+
+        total_time = time.time() - conv_start
+        logger.info(f"  [ConversationalRetriever] Complete in {total_time:.3f}s")
 
         return results[:k]
 
