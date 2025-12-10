@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // Initialize LM Studio LLM Service provider (OpenAI-compatible)
     const llmServiceUrl = process.env.LLM_SERVICE_BASE_URL || "http://localhost:1234/v1";
-    const modelName = process.env.LLM_MODEL || "krutrim-ai-labs_krutrim-2-instruct@iq2_m";
+    const modelName = process.env.LLM_MODEL || "mistralai/ministral-3-3b";
     console.log("🤖 LLM Service Configuration:", {
       baseURL: llmServiceUrl,
       model: modelName,

@@ -15,7 +15,7 @@ function LanguageBadgesVisual() {
             key={i}
             className="w-1 bg-primary rounded-full animate-pulse"
             style={{
-              height: `${Math.random() * 60 + 20}%`,
+              height: `${Math.sin(i * 0.5) * 20 + 40}%`,
               animationDelay: `${i * 0.1}s`,
               animationDuration: "1.5s",
             }}

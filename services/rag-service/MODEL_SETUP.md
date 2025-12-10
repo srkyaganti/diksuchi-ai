@@ -170,7 +170,7 @@ Expected output:
 
 ### What You Still Need
 
-❌ **Ollama/LM Studio for LLM** - Next.js still uses it for chat (`krutrim-ai-labs_Krutrim-2-instruct`)
+❌ **Ollama/LM Studio for LLM** - Next.js still uses it for chat (`mistralai/ministral-3-3b`)
 
 ### Architecture
 

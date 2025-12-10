@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json({
-      text: `${result.text}. Respond in ${detectedLanguage}`,
+      text: `${result.text}`,
       languageCode: languageCode,
       confidence: result.detected_language_probability || 0,
     });
