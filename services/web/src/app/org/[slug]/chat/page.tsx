@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import {
@@ -47,14 +47,49 @@ import { CopyIcon, RefreshCcwIcon } from "lucide-react";
 
 export default function ChatPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const orgSlug = params.slug as string;
 
   const [collectionId, setCollectionId] = useState<string>("");
   const [sessionId, setSessionId] = useState<string>("");
   const [isRecording, setIsRecording] = useState(false);
-  const [languageCode, setLanguageCode] = useState<string>("en");
+  const [languageCode, setLanguageCode] = useState<string>("");
+  const [allMessages, setAllMessages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const { messages, sendMessage, status, regenerate } = useChat({
+  // Extract sessionId from URL search parameters
+  useEffect(() => {
+    const urlSessionId = searchParams.get("sessionId");
+    if (urlSessionId) {
+      setSessionId(urlSessionId);
+      loadExistingMessages(urlSessionId);
+    } else {
+      setLoading(false);
+    }
+  }, [searchParams]);
+
+  const loadExistingMessages = async (sessionToLoad: string) => {
+    try {
+      const response = await fetch(`/api/chat/sessions/${sessionToLoad}`);
+      if (response.ok) {
+        const session = await response.json();
+        // Convert messages to the format expected by useChat
+        const formattedMessages = session.messages.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role,
+          parts: msg.content ? [{ type: "text", text: msg.content }] : [],
+          createdAt: msg.createdAt,
+        }));
+        setAllMessages(formattedMessages);
+      }
+    } catch (error) {
+      console.error("Error loading existing messages:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const { sendMessage, status, regenerate } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
     }),
@@ -64,10 +99,27 @@ export default function ChatPage() {
     },
   });
 
+  // Combine existing messages with new messages from useChat
+  const [messages, setMessages] = useState<any[]>(allMessages);
+
+  // Update messages when allMessages change (from existing chat load)
+  useEffect(() => {
+    setMessages(allMessages);
+  }, [allMessages]);
+
+  // Update allMessages when new messages are added by useChat
+  useEffect(() => {
+    if (messages.length > allMessages.length) {
+      setAllMessages(messages);
+    }
+  }, [messages, allMessages.length]);
+
   const handleCollectionSelect = (newCollectionId: string) => {
     setCollectionId(newCollectionId);
     // Reset chat when switching collections
     setSessionId("");
+    setAllMessages([]);
+    setMessages([]);
   };
 
   const handleVoiceTranscribed = ({
@@ -88,7 +140,7 @@ export default function ChatPage() {
     sendMessage(
       { text },
       {
-        body: { collectionId, sessionId },
+        body: { collectionId, sessionId: sessionId || undefined },
       }
     );
   };
@@ -114,7 +166,7 @@ export default function ChatPage() {
       {
         body: {
           collectionId,
-          sessionId,
+          sessionId: sessionId || undefined,
         },
       }
     );
@@ -159,15 +211,24 @@ export default function ChatPage() {
           />
         </div>
       </div>
-      {/* Main Chat Area */}
+        {/* Main Chat Area */}
       <Conversation className="flex-1">
         <ConversationContent>
-          {messages.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                <p className="text-sm text-gray-600">Loading chat history...</p>
+              </div>
+            </div>
+          ) : messages.length === 0 ? (
             <ConversationEmptyState
               title="Welcome to RAG Chat"
               description={
                 collectionId
-                  ? "Start asking questions about your documents or upload files to analyze"
+                  ? sessionId
+                    ? "Your previous conversation will appear here. Start asking new questions!"
+                    : "Start asking questions about your documents or upload files to analyze"
                   : "Please select a collection above to begin chatting"
               }
             />
