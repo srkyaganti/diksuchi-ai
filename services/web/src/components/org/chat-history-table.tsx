@@ -10,6 +10,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Trash2Icon } from "lucide-react";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
 interface ChatHistoryTableProps {
@@ -30,13 +33,19 @@ interface ChatHistoryTableProps {
   }>;
   currentUserId: string;
   orgSlug: string;
+  onDeleteSession?: (sessionId: string) => void;
 }
 
 export function ChatHistoryTable({
   sessions,
   currentUserId,
   orgSlug,
+  onDeleteSession,
 }: ChatHistoryTableProps) {
+  // Ensure we have valid data
+  const validSessions = sessions || [];
+  const validCurrentUserId = currentUserId || "";
+  const validOrgSlug = orgSlug || "";
   return (
     <div className="rounded-md border">
       <Table>
@@ -63,25 +72,58 @@ export function ChatHistoryTable({
             sessions.map((session) => (
               <TableRow key={session.id}>
                 <TableCell className="font-medium">
-                  {session.title || "Untitled Chat"}
+                  {session?.title || "Untitled Chat"}
                 </TableCell>
-                <TableCell>{session.collection.name}</TableCell>
+                <TableCell>{session?.collection?.name || "Unknown Collection"}</TableCell>
                 <TableCell>
-                  {session.userId === currentUserId ? "You" : session.user.name}
+                  {session?.userId === validCurrentUserId ? "You" : session?.user?.name || "Unknown User"}
                 </TableCell>
                 <TableCell>
-                  {formatDistanceToNow(new Date(session.updatedAt), {
+                  {session?.updatedAt ? formatDistanceToNow(new Date(session.updatedAt), {
                     addSuffix: true,
-                  })}
+                  }) : "Unknown time"}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link
-                      href={`/org/${orgSlug}/chat?sessionId=${session.id}`}
-                    >
-                      View
-                    </Link>
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link
+                        href={`/org/${validOrgSlug}/chat?sessionId=${session.id}`}
+                      >
+                        Open
+                      </Link>
+                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                          <Trash2Icon className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Delete Chat Session</DialogTitle>
+                          <DialogDescription>
+                            Are you sure you want to delete the chat session "{session?.title || 'Untitled Chat'}"? 
+                            This action cannot be undone and will permanently delete all associated messages.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                          <DialogClose asChild>
+                            <Button variant="outline">Cancel</Button>
+                          </DialogClose>
+                          <Button 
+                            variant="destructive" 
+                            onClick={() => {
+                              if (onDeleteSession) {
+                                onDeleteSession(session.id);
+                              }
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </TableCell>
               </TableRow>
             ))
