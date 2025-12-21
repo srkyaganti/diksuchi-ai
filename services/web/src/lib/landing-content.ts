@@ -202,7 +202,6 @@ export const landingContent = {
         description:
           "Diksuchi analyzes and understands your documents' structure and content",
         icon: "Brain",
-        badge: "Vector + Keyword + Graph indexing",
       },
       {
         number: 3,
