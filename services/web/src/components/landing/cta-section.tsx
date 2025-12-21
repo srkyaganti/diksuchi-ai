@@ -34,11 +34,11 @@ export function CTASection({ isAuthenticated = false, onGetStarted }: CTASection
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               {isAuthenticated ? (
-                <Button size="lg" className="text-base px-8 py-6 bg-blue-600 hover:bg-blue-700 transition-colors" onClick={onGetStarted}>
+                <Button size="lg" className="text-base px-8 py-6 bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors" onClick={onGetStarted}>
                   {finalCTA.primaryCTA}
                 </Button>
               ) : (
-                <Button asChild size="lg" className="text-base px-8 py-6 bg-blue-600 hover:bg-blue-700 transition-colors">
+                <Button asChild size="lg" className="text-base px-8 py-6 bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors">
                   <Link href={finalCTA.primaryCTALink}>
                     {finalCTA.primaryCTA}
                   </Link>
@@ -50,7 +50,7 @@ export function CTASection({ isAuthenticated = false, onGetStarted }: CTASection
                   asChild
                   variant="outline"
                   size="lg"
-                  className="text-base px-8 py-6 border-blue-600 text-white hover:bg-blue-800/30"
+                  className="text-base px-8 py-6 border-secondary text-secondary-foreground hover:bg-secondary/10"
                 >
                   <Link href={finalCTA.secondaryCTALink}>
                     {finalCTA.secondaryCTA}
