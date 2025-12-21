@@ -1,5 +1,6 @@
 import * as Icons from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { WobbleCard } from "@/components/ui/wobble-card";
 import { landingContent } from "@/lib/landing-content";
 
 export function TimelineSteps() {
@@ -18,7 +19,7 @@ export function TimelineSteps() {
         {/* Timeline - Horizontal on desktop, vertical on mobile */}
         <div className="relative">
           {/* Connecting Line - Hidden on mobile */}
-          <div className="hidden lg:block absolute top-16 left-0 right-0 h-0.5 bg-border" />
+          <div className="hidden lg:block absolute top-24 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
 
           {/* Steps Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-4">
@@ -28,34 +29,43 @@ export function TimelineSteps() {
 
               return (
                 <div key={index} className="relative">
-                  {/* Step Number Circle */}
-                  <div className="relative z-10 w-12 h-12 mx-auto mb-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
-                    {step.number}
-                  </div>
+                  <WobbleCard
+                    containerClassName="bg-gradient-to-br from-blue-950 to-blue-900 min-h-[320px]"
+                    className="flex flex-col h-full"
+                  >
+                    <div className="flex flex-col h-full">
+                      {/* Step Number Circle */}
+                      <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center font-bold text-lg text-white">
+                        {step.number}
+                      </div>
 
-                  {/* Icon */}
-                  <div className="flex justify-center mb-4">
-                    <div className="w-16 h-16 rounded-lg bg-accent flex items-center justify-center">
-                      <IconComponent className="h-8 w-8 text-primary" />
+                      {/* Icon */}
+                      <div className="flex justify-center mb-6">
+                        <div className="w-16 h-16 rounded-xl bg-blue-500/30 text-blue-300 flex items-center justify-center">
+                          <IconComponent className="h-8 w-8" />
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <div className="text-center flex-1 flex flex-col">
+                        <h3 className="text-lg font-semibold text-white mb-3">
+                          {step.title}
+                        </h3>
+                        <p className="text-sm text-gray-200 mb-4 leading-relaxed flex-1">
+                          {step.description}
+                        </p>
+                        {step.badge && (
+                          <Badge variant="secondary" className="text-xs font-mono mx-auto bg-white/10 text-gray-100 border-white/20 hover:bg-white/20">
+                            {step.badge}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="text-center">
-                    <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {step.description}
-                    </p>
-                    {step.badge && (
-                      <Badge variant="outline" className="text-xs font-mono">
-                        {step.badge}
-                      </Badge>
-                    )}
-                  </div>
+                  </WobbleCard>
 
                   {/* Vertical connector for mobile */}
                   {index < howItWorks.steps.length - 1 && (
-                    <div className="lg:hidden absolute left-6 top-12 bottom-0 w-0.5 bg-border -mb-8" />
+                    <div className="lg:hidden absolute left-6 top-32 bottom-0 w-0.5 bg-gradient-to-b from-primary/30 to-transparent -mb-8" />
                   )}
                 </div>
               );

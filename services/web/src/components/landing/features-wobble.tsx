@@ -9,7 +9,7 @@ export function FeaturesWobble() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto w-full px-4">
       {/* Voice Feature - Wide Card */}
       <WobbleCard
-        containerClassName="col-span-1 lg:col-span-2 h-full bg-gradient-to-br from-slate-700 to-slate-900 min-h-[300px] lg:min-h-[350px]"
+        containerClassName="col-span-1 lg:col-span-2 h-full bg-gradient-to-br from-blue-950 to-blue-900 min-h-[300px] lg:min-h-[350px]"
         className=""
       >
         <div className="max-w-xs">
@@ -28,7 +28,7 @@ export function FeaturesWobble() {
       </WobbleCard>
 
       {/* Security Feature */}
-      <WobbleCard containerClassName="col-span-1 min-h-[300px] bg-gradient-to-br from-blue-900 to-slate-950">
+      <WobbleCard containerClassName="col-span-1 min-h-[300px] bg-gradient-to-br from-blue-950 to-blue-900">
         <h2 className="max-w-80 text-left text-balance text-base md:text-xl lg:text-3xl font-semibold tracking-[-0.015em] text-white">
           Your Intelligence Stays Your Intelligence
         </h2>
@@ -41,7 +41,7 @@ export function FeaturesWobble() {
       </WobbleCard>
 
       {/* Document Intelligence - Wide Card */}
-      <WobbleCard containerClassName="col-span-1 lg:col-span-2 bg-gradient-to-br from-emerald-900 to-teal-950 min-h-[300px] lg:min-h-[350px]">
+      <WobbleCard containerClassName="col-span-1 lg:col-span-2 bg-gradient-to-br from-blue-950 to-blue-900 min-h-[300px] lg:min-h-[350px]">
         <div className="max-w-sm">
           <h2 className="max-w-sm md:max-w-lg text-left text-balance text-base md:text-xl lg:text-3xl font-semibold tracking-[-0.015em] text-white">
             Every Technical Manual. Instantly Searchable.
@@ -58,7 +58,7 @@ export function FeaturesWobble() {
       </WobbleCard>
 
       {/* Speed Feature */}
-      <WobbleCard containerClassName="col-span-1 lg:col-span-1 bg-gradient-to-br from-indigo-900 to-purple-950 min-h-[300px]">
+      <WobbleCard containerClassName="col-span-1 lg:col-span-1 bg-gradient-to-br from-blue-950 to-blue-900 min-h-[300px]">
         <h2 className="max-w-sm text-left text-balance text-base md:text-xl lg:text-3xl font-semibold tracking-[-0.015em] text-white">
           From Hours to Seconds
         </h2>

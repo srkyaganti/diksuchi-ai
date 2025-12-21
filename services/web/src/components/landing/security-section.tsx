@@ -1,8 +1,24 @@
 import * as Icons from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check } from "lucide-react";
+import { WobbleCard } from "@/components/ui/wobble-card";
 import { landingContent } from "@/lib/landing-content";
+
+// Government-standard color scheme: Unified blue
+const securityColors = [
+  {
+    bg: "bg-gradient-to-br from-blue-950 to-blue-900",
+    icon: "bg-blue-500/30 text-blue-300",
+  },
+  {
+    bg: "bg-gradient-to-br from-blue-950 to-blue-900",
+    icon: "bg-blue-500/30 text-blue-300",
+  },
+  {
+    bg: "bg-gradient-to-br from-blue-950 to-blue-900",
+    icon: "bg-blue-500/30 text-blue-300",
+  },
+];
 
 export function SecuritySection() {
   const { security } = landingContent;
@@ -28,35 +44,42 @@ export function SecuritySection() {
           </div>
         </div>
 
-        {/* Security Features Grid */}
+        {/* Security Features with Wobble Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           {security.features.map((feature, index) => {
             const IconComponent =
               (Icons[feature.icon as keyof typeof Icons] || Icons.Shield) as React.ComponentType<{className?: string}>;
 
+            const colors = securityColors[index] || securityColors[0];
+
             return (
-              <Card key={index} className="text-center">
-                <CardHeader>
-                  <div className="mx-auto mb-4">
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <IconComponent className="h-6 w-6 text-primary" />
-                    </div>
+              <WobbleCard
+                key={index}
+                containerClassName={`${colors.bg} min-h-[300px]`}
+                className="flex flex-col justify-between"
+              >
+                {/* Icon and Title */}
+                <div>
+                  <div className={`w-14 h-14 rounded-xl ${colors.icon} flex items-center justify-center mb-6 transition-transform duration-300 group-hover:scale-110`}>
+                    <IconComponent className="h-7 w-7" />
                   </div>
-                  <CardTitle className="text-lg">{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-left">
-                    {feature.benefits.map((benefit, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                        <span className="text-sm text-muted-foreground">
-                          {benefit}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+                  <h3 className="text-xl font-semibold text-white mb-4">
+                    {feature.title}
+                  </h3>
+                </div>
+
+                {/* Benefits List */}
+                <ul className="space-y-3">
+                  {feature.benefits.map((benefit, idx) => (
+                    <li key={idx} className="flex items-start gap-3">
+                      <Check className="h-5 w-5 text-white/80 shrink-0 mt-0.5" />
+                      <span className="text-sm text-gray-100 leading-relaxed">
+                        {benefit}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </WobbleCard>
             );
           })}
         </div>

@@ -158,8 +158,8 @@ export const landingContent = {
         label: "Time per technical query",
       },
       {
-        value: "50+",
-        label: "Questions answered per user per day",
+        value: "99.9%",
+        label: "System uptime & availability",
       },
       {
         value: "60%",

@@ -1,6 +1,18 @@
-import { Card, CardContent } from "@/components/ui/card";
 import { Check } from "lucide-react";
+import { WobbleCard } from "@/components/ui/wobble-card";
 import { landingContent } from "@/lib/landing-content";
+
+// Government-standard color scheme: Unified blue
+const speedColors = [
+  {
+    bg: "bg-gradient-to-br from-blue-950 to-blue-900",
+    icon: "bg-blue-500/30 text-blue-300",
+  },
+  {
+    bg: "bg-gradient-to-br from-blue-950 to-blue-900",
+    icon: "bg-blue-500/30 text-blue-300",
+  },
+];
 
 export function SpeedSection() {
   const { speed } = landingContent;
@@ -18,61 +30,78 @@ export function SpeedSection() {
           </p>
         </div>
 
-        {/* Metrics Grid */}
+        {/* Metrics Grid with Wobble Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          {speed.metrics.map((metric, index) => (
-            <Card key={index} className="text-center">
-              <CardContent className="pt-6">
-                <div className="text-3xl font-bold text-primary mb-2">
+          {speed.metrics.map((metric, index) => {
+            const metricColors = [
+              "bg-gradient-to-br from-blue-950 to-blue-900",
+              "bg-gradient-to-br from-blue-950 to-blue-900",
+              "bg-gradient-to-br from-blue-950 to-blue-900",
+              "bg-gradient-to-br from-blue-950 to-blue-900",
+            ];
+
+            return (
+              <WobbleCard
+                key={index}
+                containerClassName={`${metricColors[index % metricColors.length]} min-h-[200px]`}
+                className="flex flex-col items-center justify-center text-center"
+              >
+                <div className="text-4xl font-bold text-white mb-3">
                   {metric.value}
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-gray-200 leading-relaxed">
                   {metric.label}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </WobbleCard>
+            );
+          })}
         </div>
 
-        {/* Benefits Split */}
+        {/* Benefits Split with Wobble Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           {/* Military Benefits */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-xl font-semibold mb-4">
+          <WobbleCard
+            containerClassName={`${speedColors[0].bg} min-h-[320px]`}
+            className="flex flex-col justify-between"
+          >
+            <div>
+              <h3 className="text-xl font-semibold text-white mb-6">
                 {speed.military.title}
               </h3>
-              <ul className="space-y-3">
-                {speed.military.benefits.map((benefit, index) => (
-                  <li key={index} className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <span className="text-sm text-muted-foreground">
-                      {benefit}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+            </div>
+            <ul className="space-y-3">
+              {speed.military.benefits.map((benefit, index) => (
+                <li key={index} className="flex items-start gap-3">
+                  <Check className="h-5 w-5 text-white/80 shrink-0 mt-0.5" />
+                  <span className="text-sm text-gray-100">
+                    {benefit}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </WobbleCard>
 
           {/* Contractor Benefits */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-xl font-semibold mb-4">
+          <WobbleCard
+            containerClassName={`${speedColors[1].bg} min-h-[320px]`}
+            className="flex flex-col justify-between"
+          >
+            <div>
+              <h3 className="text-xl font-semibold text-white mb-6">
                 {speed.contractor.title}
               </h3>
-              <ul className="space-y-3">
-                {speed.contractor.benefits.map((benefit, index) => (
-                  <li key={index} className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <span className="text-sm text-muted-foreground">
-                      {benefit}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+            </div>
+            <ul className="space-y-3">
+              {speed.contractor.benefits.map((benefit, index) => (
+                <li key={index} className="flex items-start gap-3">
+                  <Check className="h-5 w-5 text-white/80 shrink-0 mt-0.5" />
+                  <span className="text-sm text-gray-100">
+                    {benefit}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </WobbleCard>
         </div>
       </div>
     </section>
