@@ -16,10 +16,12 @@ export function HeroSection({ isAuthenticated = false, onGetStarted }: HeroSecti
     <WavyBackground
       className="max-w-4xl mx-auto text-center"
       containerClassName="w-full"
+      colors={["#6d28d9", "#7c3aed", "#4f46e5", "#FF7043", "#00ACC1"]}
       blur={10}
-      waveOpacity={0.5}
-      backgroundFill={"white"}
-      waveWidth={100}
+      waveOpacity={0.4}
+      backgroundFill="white"
+      waveWidth={80}
+      speed="fast"
     >
       {/* Headline */}
       <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6 leading-tight text-black">
