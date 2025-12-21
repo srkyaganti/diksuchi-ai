@@ -6,6 +6,7 @@ import { useScrollToAnchor } from "@/hooks/use-scroll-to-anchor";
 import { NavigationHeader } from "@/components/landing/navigation-header";
 import { HeroSection } from "@/components/landing/hero-section";
 import { StatsBar } from "@/components/landing/stats-bar";
+import { FeaturesWobble } from "@/components/landing/features-wobble";
 import { VoiceFeatureSection } from "@/components/landing/voice-feature-section";
 import { DocumentIntelligenceSection } from "@/components/landing/document-intelligence-section";
 import { SecuritySection } from "@/components/landing/security-section";
@@ -44,6 +45,11 @@ export default function Home() {
 
       {/* Stats Bar */}
       <StatsBar />
+
+      {/* Features Showcase with Wobble Cards */}
+      <section className="w-full py-20 lg:py-32">
+        <FeaturesWobble />
+      </section>
 
       {/* Feature Sections */}
       <VoiceFeatureSection />

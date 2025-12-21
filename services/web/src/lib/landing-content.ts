@@ -70,7 +70,6 @@ export const landingContent = {
       "18+ Indian languages for truly inclusive access",
       "Hear answers read aloud while your hands stay on your work",
     ],
-    techHint: "Powered by Whisper & Indic ParlerTTS",
     languages: [
       "Hindi",
       "Tamil",
