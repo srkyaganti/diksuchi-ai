@@ -48,9 +48,8 @@ export function CTASection({ isAuthenticated = false, onGetStarted }: CTASection
               {finalCTA.secondaryCTALink !== "#" && (
                 <Button
                   asChild
-                  variant="outline"
                   size="lg"
-                  className="text-base px-8 py-6 border-secondary text-secondary-foreground hover:bg-secondary/10"
+                  className="text-base px-8 py-6 bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
                 >
                   <Link href={finalCTA.secondaryCTALink}>
                     {finalCTA.secondaryCTA}
