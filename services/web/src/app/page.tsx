@@ -2,6 +2,7 @@
 
 import { useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
+import { useScrollToAnchor } from "@/hooks/use-scroll-to-anchor";
 import { NavigationHeader } from "@/components/landing/navigation-header";
 import { HeroSection } from "@/components/landing/hero-section";
 import { StatsBar } from "@/components/landing/stats-bar";
@@ -21,6 +22,9 @@ export default function Home() {
   const router = useRouter();
   const isAuthenticated = !!session;
   const user = session?.user as any;
+
+  // Enable smooth scroll to anchor links
+  useScrollToAnchor();
 
   const handleGetStarted = () => {
     if (user?.isSuperAdmin) {

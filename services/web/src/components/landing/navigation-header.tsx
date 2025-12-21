@@ -6,6 +6,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { landingContent } from "@/lib/landing-content";
 
+const scrollToElement = (hash: string) => {
+  const element = document.querySelector(hash);
+  if (element) {
+    element.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+};
+
 interface NavigationHeaderProps {
   isAuthenticated?: boolean;
 }
@@ -34,6 +41,13 @@ export function NavigationHeader({
                 key={link.href}
                 href={link.href}
                 className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                onClick={(e) => {
+                  if (link.href.startsWith("#")) {
+                    e.preventDefault();
+                    scrollToElement(link.href);
+                    window.history.pushState(null, "", link.href);
+                  }
+                }}
                 {...(link.href === "/docs" && {
                   target: "_blank",
                   rel: "noopener noreferrer",
@@ -83,7 +97,14 @@ export function NavigationHeader({
                   key={link.href}
                   href={link.href}
                   className="block rounded-md px-3 py-2 text-base font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={(e) => {
+                    if (link.href.startsWith("#")) {
+                      e.preventDefault();
+                      scrollToElement(link.href);
+                      window.history.pushState(null, "", link.href);
+                    }
+                    setMobileMenuOpen(false);
+                  }}
                   {...(link.href === "/docs" && {
                     target: "_blank",
                     rel: "noopener noreferrer",
