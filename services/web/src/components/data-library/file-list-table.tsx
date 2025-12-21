@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FileStatusBadge } from "./file-status-badge";
-import { IconDotsVertical, IconDownload, IconTrash } from "@tabler/icons-react";
+import { IconDotsVertical, IconDownload, IconTrash, IconUpload } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 interface File {
@@ -109,11 +109,18 @@ export function FileListTable({ files }: FileListTableProps) {
 
   if (files.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <p className="text-lg font-medium">No files yet</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Upload your first file to get started
-        </p>
+      <div className="rounded-lg border border-dashed border-muted-foreground/25 p-12 flex flex-col items-center justify-center min-h-[500px]">
+        <div className="flex flex-col items-center justify-center text-center">
+          <div className="flex justify-center mb-4">
+            <div className="rounded-full bg-muted p-4">
+              <IconUpload className="h-6 w-6 text-muted-foreground" />
+            </div>
+          </div>
+          <h3 className="text-lg font-semibold">No files yet</h3>
+          <p className="text-sm text-muted-foreground mt-2">
+            Upload documents to start analyzing with AI-powered retrieval
+          </p>
+        </div>
       </div>
     );
   }
