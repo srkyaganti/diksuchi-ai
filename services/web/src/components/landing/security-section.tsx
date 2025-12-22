@@ -1,7 +1,7 @@
 import * as Icons from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Check } from "lucide-react";
-import { WobbleCard } from "@/components/ui/wobble-card";
+import { FeatureCard } from "@/components/ui/feature-card";
 import { landingContent } from "@/lib/landing-content";
 
 // Government-standard color scheme: Unified blue
@@ -53,7 +53,7 @@ export function SecuritySection() {
             const colors = securityColors[index] || securityColors[0];
 
             return (
-              <WobbleCard
+              <FeatureCard
                 key={index}
                 containerClassName={`${colors.bg} min-h-[300px]`}
                 className="flex flex-col justify-between"
@@ -79,7 +79,7 @@ export function SecuritySection() {
                     </li>
                   ))}
                 </ul>
-              </WobbleCard>
+              </FeatureCard>
             );
           })}
         </div>

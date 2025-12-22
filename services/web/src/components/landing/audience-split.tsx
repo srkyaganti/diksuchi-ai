@@ -1,6 +1,6 @@
 import * as Icons from "lucide-react";
 import { Check } from "lucide-react";
-import { WobbleCard } from "@/components/ui/wobble-card";
+import { FeatureCard } from "@/components/ui/feature-card";
 import { landingContent } from "@/lib/landing-content";
 
 // Government-standard color scheme: Unified blue
@@ -44,7 +44,7 @@ export function AudienceSplit() {
             const colors = audienceColors[aud.key as keyof typeof audienceColors] || audienceColors.military;
 
             return (
-              <WobbleCard
+              <FeatureCard
                 key={aud.key}
                 containerClassName={`${colors.bg} min-h-[380px]`}
                 className="flex flex-col justify-between"
@@ -72,7 +72,7 @@ export function AudienceSplit() {
                     </li>
                   ))}
                 </ul>
-              </WobbleCard>
+              </FeatureCard>
             );
           })}
         </div>

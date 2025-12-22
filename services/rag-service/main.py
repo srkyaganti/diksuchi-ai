@@ -25,7 +25,8 @@ REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 NEXTJS_CALLBACK_URL = os.getenv("NEXTJS_CALLBACK_URL", "http://localhost:3000")
 NEXTJS_API_SECRET = os.getenv("NEXTJS_API_SECRET", "V4M73S6UetRTScIyQRfQCfNqG17HYESjMeh4T5XOBDQ=")
-EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", "models/bge-m3")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "bge-m3")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -61,32 +62,37 @@ _reranker = None
 _conversational_retriever = None
 
 def get_retriever():
-    """Lazy initialization of HybridRetriever."""
+    """Lazy initialization of HybridRetriever with Ollama embeddings."""
     global _retriever
     if _retriever is None:
         from src.retrieval.hybrid_retriever import HybridRetriever
-        logger.info("Initializing HybridRetriever...")
-        _retriever = HybridRetriever(embedding_model_path=EMBEDDING_MODEL_PATH)
+        logger.info("Initializing HybridRetriever with Ollama...")
+        _retriever = HybridRetriever(
+            ollama_model=OLLAMA_MODEL,
+            ollama_url=OLLAMA_URL
+        )
     return _retriever
 
 def get_reranker():
-    """Lazy initialization of Reranker."""
+    """Lazy initialization of Reranker with FP16 for memory efficiency."""
     global _reranker
     if _reranker is None:
         from src.retrieval.reranker import Reranker
-        logger.info("Initializing Reranker...")
-        _reranker = Reranker()
+        logger.info("Initializing Reranker (FP16 enabled)...")
+        _reranker = Reranker(use_fp16=True)
     return _reranker
 
 def get_conversational_retriever():
-    """Lazy initialization of ConversationalRetriever."""
+    """Lazy initialization of ConversationalRetriever with shared instances."""
     global _conversational_retriever
     if _conversational_retriever is None:
         from src.retrieval.conversational_retriever import ConversationalRetriever
-        logger.info("Initializing ConversationalRetriever...")
+        logger.info("Initializing ConversationalRetriever with shared instances...")
+        # Share existing retriever and reranker to prevent duplicate model loading
         _conversational_retriever = ConversationalRetriever(
-            embedding_model_path=EMBEDDING_MODEL_PATH,
-            use_query_agent=False  # Disabled by default (requires additional model)
+            hybrid_retriever=get_retriever(),
+            reranker=get_reranker(),
+            use_query_agent=False
         )
     return _conversational_retriever
 
@@ -365,36 +371,47 @@ async def startup_event():
     logger.info("=" * 70)
     logger.info("RAG Worker API Starting...")
     logger.info(f"Redis: {REDIS_HOST}:{REDIS_PORT}")
-    logger.info(f"Embedding Model: {EMBEDDING_MODEL_PATH}")
+    logger.info(f"Ollama Model: {OLLAMA_MODEL}")
+    logger.info(f"Ollama URL: {OLLAMA_URL}")
     logger.info(f"Callback URL: {NEXTJS_CALLBACK_URL}")
     logger.info("=" * 70)
 
-    # Verify embedding model exists
-    if not os.path.exists(EMBEDDING_MODEL_PATH):
-        logger.warning(f"⚠️  Embedding model not found at {EMBEDDING_MODEL_PATH}")
-        logger.warning("Please run: python download_sentence_model.py")
-        return
-    elif not os.path.isdir(EMBEDDING_MODEL_PATH):
-        logger.error(f"❌ EMBEDDING_MODEL_PATH must be a directory, not a file: {EMBEDDING_MODEL_PATH}")
+    # Verify Ollama is running
+    try:
+        import httpx
+        response = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=10.0)
+        response.raise_for_status()
+        models = response.json().get("models", [])
+        model_names = [m.get("name", "").split(":")[0] for m in models]
+        if OLLAMA_MODEL in model_names:
+            logger.info(f"✓ Ollama model '{OLLAMA_MODEL}' is available")
+        else:
+            logger.warning(f"⚠️  Model '{OLLAMA_MODEL}' not found in Ollama.")
+            logger.warning(f"   Available: {model_names}")
+            logger.warning(f"   Pull with: ollama pull {OLLAMA_MODEL}")
+            return
+    except Exception as e:
+        logger.error(f"❌ Cannot connect to Ollama at {OLLAMA_URL}: {e}")
+        logger.error("Please start Ollama: ollama serve")
         return
 
     logger.info("⏳ Warming up models during startup...")
     startup_start = time.time()
 
-    # 1. Initialize HybridRetriever (includes embedding model)
+    # 1. Initialize HybridRetriever (uses Ollama for embeddings)
     try:
-        logger.info("  [1/3] Loading Embedding Model (Sentence Transformer)...")
+        logger.info("  [1/3] Connecting to Ollama for embeddings...")
         retriever_start = time.time()
         retriever = get_retriever()
         retriever_time = time.time() - retriever_start
-        logger.info(f"  ✓ Embedding Model loaded in {retriever_time:.2f}s")
+        logger.info(f"  ✓ HybridRetriever initialized in {retriever_time:.2f}s")
     except Exception as e:
-        logger.error(f"  ✗ Failed to load Embedding Model: {e}")
+        logger.error(f"  ✗ Failed to initialize HybridRetriever: {e}")
         return
 
-    # 2. Initialize Reranker
+    # 2. Initialize Reranker (FP16 for memory efficiency)
     try:
-        logger.info("  [2/3] Loading Reranker Model (cross-encoder)...")
+        logger.info("  [2/3] Loading Reranker Model (FP16 cross-encoder)...")
         reranker_start = time.time()
         reranker = get_reranker()
         reranker_time = time.time() - reranker_start
@@ -403,15 +420,15 @@ async def startup_event():
         logger.error(f"  ✗ Failed to load Reranker: {e}")
         # Don't return - reranking is optional
 
-    # 3. Initialize ConversationalRetriever
+    # 3. Initialize ConversationalRetriever (uses shared instances)
     try:
-        logger.info("  [3/3] Loading Conversational Retriever...")
+        logger.info("  [3/3] Initializing Conversational Retriever (shared instances)...")
         conv_retriever_start = time.time()
         conv_retriever = get_conversational_retriever()
         conv_retriever_time = time.time() - conv_retriever_start
-        logger.info(f"  ✓ Conversational Retriever loaded in {conv_retriever_time:.2f}s")
+        logger.info(f"  ✓ Conversational Retriever initialized in {conv_retriever_time:.2f}s")
     except Exception as e:
-        logger.error(f"  ✗ Failed to load Conversational Retriever: {e}")
+        logger.error(f"  ✗ Failed to initialize Conversational Retriever: {e}")
         # Don't return - conversational retrieval is optional
 
     total_startup_time = time.time() - startup_start

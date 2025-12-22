@@ -1,6 +1,6 @@
 import * as Icons from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { WobbleCard } from "@/components/ui/wobble-card";
+import { FeatureCard } from "@/components/ui/feature-card";
 import { landingContent } from "@/lib/landing-content";
 
 export function TimelineSteps() {
@@ -29,7 +29,7 @@ export function TimelineSteps() {
 
               return (
                 <div key={index} className="relative">
-                  <WobbleCard
+                  <FeatureCard
                     containerClassName="bg-gradient-to-br from-blue-950 to-blue-900 min-h-[320px]"
                     className="flex flex-col h-full"
                   >
@@ -61,7 +61,7 @@ export function TimelineSteps() {
                         )}
                       </div>
                     </div>
-                  </WobbleCard>
+                  </FeatureCard>
 
                   {/* Vertical connector for mobile */}
                   {index < howItWorks.steps.length - 1 && (

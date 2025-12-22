@@ -8,12 +8,25 @@ logger = logging.getLogger(__name__)
 class Reranker:
     """
     Reranks retrieval results using a Cross-Encoder model.
+    Supports FP16 for memory efficiency on Apple Silicon / CUDA.
     """
-    def __init__(self, model_name: str = "BAAI/bge-reranker-v2-m3"):
+    def __init__(self, model_name: str = "BAAI/bge-reranker-v2-m3", use_fp16: bool = True):
         self.device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
         logger.info(f"Loading Reranker {model_name} on {self.device}...")
+        
+        # Configure FP16 for memory efficiency (~50% reduction)
+        automodel_args = {}
+        if use_fp16 and self.device in ["cuda", "mps"]:
+            automodel_args["torch_dtype"] = torch.float16
+            logger.info("Using FP16 for memory efficiency (saves ~50% memory)")
+        
         try:
-            self.model = CrossEncoder(model_name, device=self.device)
+            self.model = CrossEncoder(
+                model_name, 
+                device=self.device,
+                automodel_args=automodel_args
+            )
+            logger.info(f"✓ Reranker loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load reranker: {e}")
             raise

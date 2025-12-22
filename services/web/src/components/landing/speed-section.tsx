@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import { WobbleCard } from "@/components/ui/wobble-card";
+import { FeatureCard } from "@/components/ui/feature-card";
 import { landingContent } from "@/lib/landing-content";
 
 // Government-standard color scheme: Unified blue
@@ -41,7 +41,7 @@ export function SpeedSection() {
             ];
 
             return (
-              <WobbleCard
+              <FeatureCard
                 key={index}
                 containerClassName={`${metricColors[index % metricColors.length]} min-h-[200px]`}
                 className="flex flex-col items-center justify-center text-center"
@@ -52,7 +52,7 @@ export function SpeedSection() {
                 <div className="text-sm text-gray-200 leading-relaxed">
                   {metric.label}
                 </div>
-              </WobbleCard>
+              </FeatureCard>
             );
           })}
         </div>
@@ -60,7 +60,7 @@ export function SpeedSection() {
         {/* Benefits Split with Wobble Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           {/* Military Benefits */}
-          <WobbleCard
+          <FeatureCard
             containerClassName={`${speedColors[0].bg} min-h-[320px]`}
             className="flex flex-col justify-between"
           >
@@ -79,10 +79,10 @@ export function SpeedSection() {
                 </li>
               ))}
             </ul>
-          </WobbleCard>
+          </FeatureCard>
 
           {/* Contractor Benefits */}
-          <WobbleCard
+          <FeatureCard
             containerClassName={`${speedColors[1].bg} min-h-[320px]`}
             className="flex flex-col justify-between"
           >
@@ -101,7 +101,7 @@ export function SpeedSection() {
                 </li>
               ))}
             </ul>
-          </WobbleCard>
+          </FeatureCard>
         </div>
       </div>
     </section>

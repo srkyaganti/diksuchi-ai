@@ -29,18 +29,22 @@ logger = logging.getLogger(__name__)
 # Environment variables
 NEXTJS_CALLBACK_URL = os.getenv("NEXTJS_CALLBACK_URL", "http://localhost:3000")
 NEXTJS_API_SECRET = os.getenv("NEXTJS_API_SECRET", "V4M73S6UetRTScIyQRfQCfNqG17HYESjMeh4T5XOBDQ=")
-EMBEDDING_MODEL_PATH = os.getenv("EMBEDDING_MODEL_PATH", "models/bge-m3")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "bge-m3")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 # Global pipeline instance (lazy-loaded)
 _pipeline = None
 
 def get_pipeline():
-    """Lazy initialization of IngestionPipeline."""
+    """Lazy initialization of IngestionPipeline with Ollama embeddings."""
     global _pipeline
     if _pipeline is None:
-        logger.info("Initializing IngestionPipeline...")
-        _pipeline = IngestionPipeline(embedding_model_path=EMBEDDING_MODEL_PATH)
+        logger.info("Initializing IngestionPipeline with Ollama...")
+        _pipeline = IngestionPipeline(
+            ollama_model=OLLAMA_MODEL,
+            ollama_url=OLLAMA_URL
+        )
     return _pipeline
 
 
@@ -284,18 +288,26 @@ def main():
     logger.info("=" * 60)
     logger.info("RAG Worker Starting...")
     logger.info(f"Redis: {redis_host}:{redis_port}")
-    logger.info(f"Embedding Model: {EMBEDDING_MODEL_PATH}")
+    logger.info(f"Ollama Model: {OLLAMA_MODEL}")
+    logger.info(f"Ollama URL: {OLLAMA_URL}")
     logger.info(f"Callback URL: {NEXTJS_CALLBACK_URL}")
     logger.info("=" * 60)
 
-    # Verify embedding model exists
-    if not os.path.exists(EMBEDDING_MODEL_PATH):
-        logger.error(f"❌ Embedding model not found at {EMBEDDING_MODEL_PATH}")
-        logger.error("Please run: python download_sentence_model.py")
-        sys.exit(1)
-    elif not os.path.isdir(EMBEDDING_MODEL_PATH):
-        logger.error(f"❌ EMBEDDING_MODEL_PATH must be a directory: {EMBEDDING_MODEL_PATH}")
-        logger.error("Current value points to a file. Expected directory containing sentence-transformers model.")
+    # Verify Ollama is running
+    try:
+        import httpx
+        response = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=10.0)
+        response.raise_for_status()
+        models = response.json().get("models", [])
+        model_names = [m.get("name", "").split(":")[0] for m in models]
+        if OLLAMA_MODEL in model_names:
+            logger.info(f"✓ Ollama model '{OLLAMA_MODEL}' is available")
+        else:
+            logger.warning(f"⚠️  Model '{OLLAMA_MODEL}' not found. Available: {model_names}")
+            logger.warning(f"   Pull with: ollama pull {OLLAMA_MODEL}")
+    except Exception as e:
+        logger.error(f"❌ Ollama not running at {OLLAMA_URL}: {e}")
+        logger.error("Please start Ollama: ollama serve")
         sys.exit(1)
 
     try:

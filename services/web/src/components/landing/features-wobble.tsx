@@ -1,14 +1,14 @@
 "use client";
 
 import React from "react";
-import { WobbleCard } from "@/components/ui/wobble-card";
+import { FeatureCard } from "@/components/ui/feature-card";
 import * as Icons from "lucide-react";
 
 export function FeaturesWobble() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto w-full px-4">
       {/* Voice Feature - Wide Card */}
-      <WobbleCard
+      <FeatureCard
         containerClassName="col-span-1 lg:col-span-2 h-full bg-gradient-to-br from-blue-950 to-blue-900 min-h-[300px] lg:min-h-[350px]"
         className=""
       >
@@ -25,10 +25,10 @@ export function FeaturesWobble() {
           </div>
         </div>
         <Icons.Mic className="absolute -right-8 -bottom-8 h-32 w-32 text-white opacity-20" />
-      </WobbleCard>
+      </FeatureCard>
 
       {/* Security Feature */}
-      <WobbleCard containerClassName="col-span-1 min-h-[300px] bg-gradient-to-br from-blue-950 to-blue-900">
+      <FeatureCard containerClassName="col-span-1 min-h-[300px] bg-gradient-to-br from-blue-950 to-blue-900">
         <h2 className="max-w-80 text-left text-balance text-base md:text-xl lg:text-3xl font-semibold tracking-[-0.015em] text-white">
           Your Intelligence Stays Your Intelligence
         </h2>
@@ -38,10 +38,10 @@ export function FeaturesWobble() {
         <div className="mt-6">
           <Icons.Shield className="h-12 w-12 text-white opacity-40" />
         </div>
-      </WobbleCard>
+      </FeatureCard>
 
       {/* Document Intelligence - Wide Card */}
-      <WobbleCard containerClassName="col-span-1 lg:col-span-2 bg-gradient-to-br from-blue-950 to-blue-900 min-h-[300px] lg:min-h-[350px]">
+      <FeatureCard containerClassName="col-span-1 lg:col-span-2 bg-gradient-to-br from-blue-950 to-blue-900 min-h-[300px] lg:min-h-[350px]">
         <div className="max-w-sm">
           <h2 className="max-w-sm md:max-w-lg text-left text-balance text-base md:text-xl lg:text-3xl font-semibold tracking-[-0.015em] text-white">
             Every Technical Manual. Instantly Searchable.
@@ -55,10 +55,10 @@ export function FeaturesWobble() {
           </div>
         </div>
         <Icons.BookOpen className="absolute -right-10 -bottom-8 h-40 w-40 text-white opacity-15" />
-      </WobbleCard>
+      </FeatureCard>
 
       {/* Speed Feature */}
-      <WobbleCard containerClassName="col-span-1 lg:col-span-1 bg-gradient-to-br from-blue-950 to-blue-900 min-h-[300px]">
+      <FeatureCard containerClassName="col-span-1 lg:col-span-1 bg-gradient-to-br from-blue-950 to-blue-900 min-h-[300px]">
         <h2 className="max-w-sm text-left text-balance text-base md:text-xl lg:text-3xl font-semibold tracking-[-0.015em] text-white">
           From Hours to Seconds
         </h2>
@@ -69,7 +69,7 @@ export function FeaturesWobble() {
           <div className="text-4xl font-bold text-slate-200">95%</div>
           <p className="text-xs text-gray-400 mt-2">Faster Search</p>
         </div>
-      </WobbleCard>
+      </FeatureCard>
     </div>
   );
 }
