@@ -29,6 +29,18 @@ fi
 
 source venv/bin/activate
 
+# Check Ollama is running
+echo "Checking Ollama connection..."
+curl -s http://localhost:11434/api/tags > /dev/null 2>&1 || {
+    echo "ERROR: Ollama not running. Start with:"
+    echo "  ollama serve"
+    echo ""
+    echo "Then pull the embedding model:"
+    echo "  ollama pull bge-m3"
+    exit 1
+}
+echo "✓ Ollama is running"
+
 # Check Redis connection
 echo "Checking Redis connection..."
 redis-cli -h $REDIS_HOST -p $REDIS_PORT ping > /dev/null 2>&1 || {
@@ -36,6 +48,7 @@ redis-cli -h $REDIS_HOST -p $REDIS_PORT ping > /dev/null 2>&1 || {
     echo "  brew services start redis"
     exit 1
 }
+echo "✓ Redis is connected"
 
 # Start RQ worker
 echo "Starting RQ Worker..."

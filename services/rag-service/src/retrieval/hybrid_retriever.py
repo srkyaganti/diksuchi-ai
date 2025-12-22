@@ -4,7 +4,7 @@ import logging
 import os
 from typing import List, Dict, Any
 from src.storage.graph_manager import LocalGraph
-from src.embeddings.sentence_transformer_embeddings import SentenceTransformerEmbeddingFunction
+from src.embeddings.ollama_embeddings import OllamaEmbeddingFunction
 from src.quality.safety_preserver import SafetyPreserver
 from src.quality.confidence_scorer import ConfidenceScorer
 from src.quality.conflict_detector import ConflictDetector
@@ -20,15 +20,18 @@ class HybridRetriever:
     Now supports collection-specific retrieval for data isolation.
     """
 
-    def __init__(self, embedding_model_path: str = "models/bge-m3"):
+    def __init__(
+        self, 
+        ollama_model: str = "bge-m3",
+        ollama_url: str = "http://localhost:11434"
+    ):
         # 1. Vector Store Client (collections accessed per-query)
         self.chroma_client = chromadb.PersistentClient(path="data/chroma_db")
 
-        if not os.path.exists(embedding_model_path):
-             raise FileNotFoundError(f"Embedding model not found at {embedding_model_path}")
-
-        self.embedding_fn = SentenceTransformerEmbeddingFunction(
-            model_name_or_path=embedding_model_path
+        # Use Ollama for embeddings (memory-efficient, shared with worker)
+        self.embedding_fn = OllamaEmbeddingFunction(
+            model_name=ollama_model,
+            base_url=ollama_url
         )
 
         # Don't create a default collection - collections are accessed per query
@@ -44,13 +47,15 @@ class HybridRetriever:
         # 4. Quality gates for Phase 1 accuracy improvements
         self.safety_preserver = SafetyPreserver()
         self.confidence_scorer = ConfidenceScorer()
-        self.conflict_detector = ConflictDetector(embedding_model=self.embedding_fn.model)
+        # Use pattern-based conflict detection only (no embedding model needed)
+        self.conflict_detector = ConflictDetector()
 
         # 5. Citation tracking for Phase 2
         self.citation_tracker = CitationTracker()
 
         # 6. Phase 4: Hallucination detection and adaptive retrieval
-        self.hallucination_detector = HallucinationDetector(embedding_model=self.embedding_fn.model)
+        # Use pattern-based hallucination detection only (no embedding model needed)
+        self.hallucination_detector = HallucinationDetector()
         self.adaptive_strategy = AdaptiveRetrievalStrategy()
 
     def _get_collection(self, collection_id: str):

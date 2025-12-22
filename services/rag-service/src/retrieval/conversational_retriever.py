@@ -3,10 +3,11 @@ Conversational Retriever with chat history awareness.
 Handles multi-turn conversations, query rewriting, and context building.
 """
 import logging
-from typing import List, Dict, Any, Optional
-from src.retrieval.hybrid_retriever import HybridRetriever
-from src.retrieval.reranker import Reranker
-from src.retrieval.query_agent import QueryAgent
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.retrieval.hybrid_retriever import HybridRetriever
+    from src.retrieval.reranker import Reranker
 
 logger = logging.getLogger(__name__)
 
@@ -24,20 +25,43 @@ class ConversationalRetriever:
 
     def __init__(
         self,
-        embedding_model_path: str = "models/bge-m3.gguf",
-        query_agent_model_path: str = "models/llama-3.2-3b-instruct.gguf",
-        use_query_agent: bool = True
+        hybrid_retriever: "HybridRetriever" = None,
+        reranker: "Reranker" = None,
+        ollama_model: str = "bge-m3",
+        ollama_url: str = "http://localhost:11434",
+        use_query_agent: bool = False  # Disabled by default to save memory
     ):
-        self.hybrid_retriever = HybridRetriever(embedding_model_path)
-        self.reranker = Reranker()
+        """
+        Initialize conversational retriever.
+        
+        Args:
+            hybrid_retriever: Shared HybridRetriever instance (avoids duplicate model loading)
+            reranker: Shared Reranker instance (avoids duplicate model loading)
+            ollama_model: Ollama embedding model name (used if hybrid_retriever not provided)
+            ollama_url: Ollama server URL
+            use_query_agent: Whether to use query refinement agent (disabled by default)
+        """
+        # Use shared instances if provided, otherwise create new
+        if hybrid_retriever is not None:
+            self.hybrid_retriever = hybrid_retriever
+            logger.info("Using shared HybridRetriever instance")
+        else:
+            from src.retrieval.hybrid_retriever import HybridRetriever
+            self.hybrid_retriever = HybridRetriever(ollama_model, ollama_url)
+            logger.info("Created new HybridRetriever instance")
+        
+        if reranker is not None:
+            self.reranker = reranker
+            logger.info("Using shared Reranker instance")
+        else:
+            from src.retrieval.reranker import Reranker
+            self.reranker = Reranker(use_fp16=True)
+            logger.info("Created new Reranker instance")
 
-        # Optional query refinement
+        # Query agent is disabled by default to save memory
         self.query_agent = None
         if use_query_agent:
-            try:
-                self.query_agent = QueryAgent(query_agent_model_path)
-            except Exception as e:
-                logger.warning(f"Query agent disabled: {e}")
+            logger.info("Query agent is disabled in memory-optimized mode")
 
     def retrieve_with_history(
         self,

@@ -3,8 +3,7 @@ import asyncio
 import logging
 from typing import List
 import chromadb
-# from chromadb.utils import embedding_functions # Removed default
-from src.embeddings.sentence_transformer_embeddings import SentenceTransformerEmbeddingFunction
+from src.embeddings.ollama_embeddings import OllamaEmbeddingFunction
 
 from src.ingestion.s1000d_parser import S1000DParser
 from src.ingestion.pdf_parser import PDFParser
@@ -21,28 +20,29 @@ class IngestionPipeline:
     4. Knowledge Graph Insertion (SQLite)
     """
 
-    def __init__(self, embedding_model_path: str = "models/bge-m3.gguf"):
+    def __init__(
+        self, 
+        ollama_model: str = "bge-m3",
+        ollama_url: str = "http://localhost:11434"
+    ):
         # Initialize Components
         self.s1000d_parser = S1000DParser()
         self.pdf_parser = PDFParser()
         self.graph = LocalGraph()
 
-        # Initialize ChromaDB client with LlamaCpp Embeddings
+        # Initialize ChromaDB client with Ollama Embeddings
         self.chroma_client = chromadb.PersistentClient(path="data/chroma_db")
 
-        # Check if model exists, otherwise warn (user needs to download it)
-        if not os.path.exists(embedding_model_path):
-            logger.warning(f"Embedding model not found at {embedding_model_path}. Please download it.")
-            # Fallback or raise error depending on policy. Here we raise to ensure correctness.
-            raise FileNotFoundError(f"Model not found: {embedding_model_path}")
-
-        self.embedding_fn = SentenceTransformerEmbeddingFunction(
-            model_name_or_path=embedding_model_path
+        # Use Ollama for embeddings (memory-efficient, runs in separate process)
+        self.embedding_fn = OllamaEmbeddingFunction(
+            model_name=ollama_model,
+            base_url=ollama_url
         )
-        logger.info(f"Initialized IngestionPipeline with sentence-transformers model: {embedding_model_path}")
+        logger.info(f"Initialized IngestionPipeline with Ollama model: {ollama_model}")
 
         # Don't create a default collection - collections are now created per collectionId
         # This ensures data isolation between organizations
+
 
     def _get_collection(self, collection_id: str):
         """
