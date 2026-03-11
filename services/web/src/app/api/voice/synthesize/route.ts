@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
-const TTS_SERVICE_URL = process.env.TTS_SERVICE_URL || "http://localhost:8002";
+const VOICE_SERVICE_URL = process.env.VOICE_SERVICE_URL || "http://localhost:8000";
 
 /**
  * POST /api/voice/synthesize - Convert text to speech using ElevenLabs
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-		const ttsResponse = await fetch(`${TTS_SERVICE_URL}/generate`, {
+		const ttsResponse = await fetch(`${VOICE_SERVICE_URL}/tts/generate`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 		})
 
     if (!ttsResponse.ok) {
-	    throw new Error(`TTS server responded with status ${ttsResponse.status}`);
+	    throw new Error(`Voice service TTS responded with status ${ttsResponse.status}`);
     }
 
     // Get the audio buffer from the FastAPI response

@@ -24,17 +24,12 @@ Diksuchi-AI is a comprehensive document intelligence platform that combines adva
   - Background job processing via Redis Queue
   - **Port:** 5001
 
-- **STT Service** (whisper.cpp) - Speech-to-Text
-  - Whisper.cpp native transcription
-  - Multi-language support
-  - Real-time audio processing
-  - **Port:** 8080 (managed separately)
-
-- **TTS Service** (`services/tts-service/`) - Text-to-Speech
-  - ParlerTTS synthesis
-  - 18+ Indian languages supported
-  - Customizable voice parameters
-  - **Port:** 8002
+- **Voice Service** (`services/voice-service/`) - Combined STT and TTS
+  - Faster Whisper for speech-to-text
+  - Indic Parler TTS for text-to-speech in 18+ Indian languages
+  - GPU-accelerated processing
+  - Namespaced endpoints: `/stt/*` and `/tts/*`
+  - **Port:** 8000
 
 ### Infrastructure
 
@@ -74,8 +69,7 @@ open http://localhost:3000
 |---------|-----|---------|
 | Web Application | http://localhost:3000 | Main UI |
 | RAG Service API | http://localhost:5001 | Document processing |
-| STT Service (whisper.cpp) | http://localhost:8080 | Speech-to-text |
-| TTS Service | http://localhost:8002 | Text-to-speech |
+| Voice Service (STT + TTS) | http://localhost:8000 | Speech-to-text & text-to-speech |
 | ChromaDB | http://localhost:8000 | Vector database |
 | PostgreSQL | localhost:5432 | Database |
 
@@ -184,8 +178,9 @@ docker-compose ps
 # All services should show "healthy" status
 curl http://localhost:3000       # Web app
 curl http://localhost:5001/health # RAG service
-curl http://localhost:8080/inference # STT service (whisper.cpp)
-curl http://localhost:8002/health # TTS service
+curl http://localhost:8000/health # Voice service (combined)
+curl http://localhost:8000/stt/health # STT health check
+curl http://localhost:8000/tts/health # TTS health check
 ```
 
 ## Configuration
@@ -197,8 +192,7 @@ Key configuration options (see `.env.example` for complete list):
 - `DATABASE_URL` - PostgreSQL connection string
 - `REDIS_HOST`, `REDIS_PORT` - Redis configuration
 - `PYTHON_WORKER_URL` - RAG service endpoint
-- `STT_SERVICE_URL` - Speech-to-text endpoint
-- `TTS_SERVICE_URL` - Text-to-speech endpoint
+- `VOICE_SERVICE_URL` - Voice service endpoint (STT + TTS)
 - `LLM_MODEL` - Language model identifier
 - `HF_TOKEN` - Hugging Face token for model downloads
 

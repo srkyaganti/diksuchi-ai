@@ -137,8 +137,7 @@ Open browser and navigate to:
 |---------|-----|---------|
 | Web App | http://localhost:3000 | Main application |
 | RAG API | http://localhost:5001 | Document processing |
-| STT Service (whisper.cpp) | http://localhost:8080 | Speech-to-text |
-| TTS Service | http://localhost:8002 | Text-to-speech |
+| Voice Service (STT + TTS) | http://localhost:8000 | Speech-to-text & text-to-speech |
 | ChromaDB | http://localhost:8000 | Vector database |
 | PostgreSQL | localhost:5432 | Database (user: postgres, password: password) |
 
@@ -381,8 +380,9 @@ docker-compose ps
 # Test endpoints
 curl http://localhost:3000
 curl http://localhost:5001/health
-curl http://localhost:8080/inference # whisper.cpp
-curl http://localhost:8002/health
+curl http://localhost:8000/health # Voice service (combined)
+curl http://localhost:8000/stt/health # STT health check
+curl http://localhost:8000/tts/health # TTS health check
 ```
 
 ### Resource Usage

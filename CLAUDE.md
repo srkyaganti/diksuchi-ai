@@ -10,7 +10,7 @@ Diksuchi-AI is a multi-tenant RAG (Retrieval-Augmented Generation) platform with
 
 ### Services & Ports
 
-The application uses a microservices architecture with 4 main services:
+The application uses a microservices architecture with 3 main services:
 
 1. **Web App** (`services/web/`) - Port 3000
    - Next.js 16 full-stack application with React 19
@@ -24,12 +24,11 @@ The application uses a microservices architecture with 4 main services:
    - Redis Queue for background job processing
    - Cross-encoder reranking
 
-3. **STT Service** (whisper.cpp) - Port 8080
-   - Speech-to-text transcription (managed separately)
-
-4. **TTS Service** (`services/tts-service/`) - Port 8002
-   - ParlerTTS for text-to-speech
-   - 18+ Indian languages supported
+3. **Voice Service** (`services/voice-service/`) - Port 8000
+   - Combined STT (Speech-to-Text) and TTS (Text-to-Speech)
+   - Faster Whisper for transcription (GPU-accelerated)
+   - Indic Parler TTS for 18+ Indian languages
+   - Namespaced endpoints: `/stt/*` and `/tts/*`
 
 ### Infrastructure
 
@@ -187,6 +186,49 @@ Optional cross-encoder reranking with BAAI/bge-reranker-v2-m3 for precision.
 - `services/rag-service/src/retrieval/conversational_retriever.py` - Chat-aware retrieval
 - `services/rag-service/src/retrieval/reranker.py` - Cross-encoder reranking
 
+### Voice Service
+
+The voice service provides both speech-to-text and text-to-speech capabilities in a single combined service.
+
+**STT (Speech-to-Text)**:
+- Uses Faster Whisper with CTranslate2 for efficient GPU-accelerated transcription
+- Supports multiple Whisper model sizes (default: large-v3)
+- Returns language detection, full text, and segment-level timestamps
+- VAD (Voice Activity Detection) filtering enabled by default
+- Endpoint: `POST /stt/transcribe`
+
+**TTS (Text-to-Speech)**:
+- Uses ai4bharat/indic-parler-tts for 18+ Indian languages
+- Multiple speaker voices per language
+- Returns high-quality WAV audio
+- Endpoint: `POST /tts/generate`
+
+**Configuration**:
+```bash
+# Environment variables
+VOICE_SERVICE_URL=http://localhost:8000
+STT_MODEL_NAME=large-v3
+STT_DEVICE=cuda
+TTS_MODEL_NAME=ai4bharat/indic-parler-tts
+TTS_DEVICE=auto
+HF_TOKEN=your_token_here
+```
+
+**Key files**:
+- `services/voice-service/server.py` - Combined FastAPI application
+- `services/web/src/app/api/voice/transcribe/route.ts` - STT integration
+- `services/web/src/app/api/voice/synthesize/route.ts` - TTS integration
+
+**Memory Requirements**:
+- STT model (large-v3): ~3GB VRAM
+- TTS model: ~2-3GB VRAM
+- Total: ~5-6GB VRAM
+
+**Health Endpoints**:
+- `GET /health` - Combined health check
+- `GET /stt/health` - STT-specific health check
+- `GET /tts/health` - TTS-specific health check
+
 ### File Paths & Storage
 
 - Uploaded files: `services/web/uploads/{uuid}.{ext}`
@@ -221,6 +263,7 @@ Critical environment variables (see `.env.example`):
 - `INTERNAL_API_SECRET` - Shared secret for RAG→Web callbacks
 - `EMBEDDING_MODEL_PATH` - Path to BGE-M3 GGUF model
 - `LLM_SERVICE_BASE_URL` - LM Studio endpoint
+- `VOICE_SERVICE_URL` - Voice service endpoint (STT + TTS)
 - `HF_TOKEN` - Required for downloading STT/TTS models
 
 ### Testing RAG Service

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from "@/lib/auth";
 
-const STT_SERVICE_URL = process.env.STT_SERVICE_URL || "http://localhost:8080";
+const VOICE_SERVICE_URL = process.env.VOICE_SERVICE_URL || "http://localhost:8000";
 
 /**
  * POST /api/voice/transcribe - Transcribe audio using local Whisper server
@@ -32,58 +32,55 @@ export async function POST(request: NextRequest) {
     whisperFormData.append("temperature", "0.0");
     whisperFormData.append("response_format", "verbose_json");
 
-    console.log("Sending to STT service:", {
-      url: `${STT_SERVICE_URL}/inference`,
+    console.log("Sending to Voice Service STT:", {
+      url: `${VOICE_SERVICE_URL}/stt/transcribe`,
       blobSize: audioBlob.size,
       blobType: audioBlob.type,
     });
 
-    // Send to STT service
-    const whisperResponse = await fetch(`${STT_SERVICE_URL}/inference`, {
+    // Send to Voice Service
+    const whisperResponse = await fetch(`${VOICE_SERVICE_URL}/stt/transcribe`, {
       method: "POST",
       body: whisperFormData,
     });
 
     if (!whisperResponse.ok) {
-	    throw new Error(`Whisper server responded with status ${whisperResponse.status}`);
+      const errorText = await whisperResponse.text();
+      throw new Error(`Voice service responded with status ${whisperResponse.status}: ${errorText}`);
     }
 
     const result = await whisperResponse.json();
 
     // Log full response for debugging
-    console.log("Whisper server response:", JSON.stringify(result, null, 2));
+    console.log("Voice Service STT response:", JSON.stringify(result, null, 2));
 
     // Validate response structure
     if (!result.text) {
       throw new Error(
-        "Invalid Whisper response: missing 'text' field. Response: " +
+        "Invalid Voice Service response: missing 'text' field. Response: " +
           JSON.stringify(result)
       );
     }
 
     // Log detected language for debugging
     console.log(
-      "Whisper STT Result - Language:",
-      result.detected_language || "unknown",
+      "STT Result - Language:",
+      result.language || "unknown",
       "Confidence:",
-      result.detected_language_probability || 0,
+      result.language_probability || 0,
       "Text length:",
       result.text.length
     );
 
-    // Map Whisper response to match ElevenLabs format
-    // ElevenLabs uses language_code (e.g., "en"), Whisper uses full name (e.g., "english")
-    // whisper.cpp uses "language" field, Python service uses "detected_language"
-    // Convert detected_language to ISO 639-1 code
+    // Map Voice Service response to match expected format
+    // Voice Service returns ISO 639-1 codes (e.g., "hi"), which is what we need
     const detectedLanguage = result.language || result.detected_language || "unknown";
-    const languageCode = mapLanguageToCode(
-			detectedLanguage.toLowerCase(),
-    );
+    const languageCode = mapLanguageToCode(detectedLanguage.toLowerCase());
 
     return NextResponse.json({
-      text: `${result.text}`,
+      text: result.text,
       languageCode: languageCode,
-      confidence: result.detected_language_probability || 0,
+      confidence: result.language_probability || result.detected_language_probability || 0,
     });
   } catch (error) {
     console.error("Transcription error:", error);
@@ -92,7 +89,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: errorMessage,
-        hint: "Make sure STT service is running at " + STT_SERVICE_URL,
+        hint: "Make sure Voice Service is running at " + VOICE_SERVICE_URL,
       },
       { status: 500 }
     );
