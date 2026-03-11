@@ -72,4 +72,22 @@ temp/
 # Docker
 .dockerignore
 
+# Docker-only: Local data (now in Docker volumes)
+data/chromadb_data/
+data/postgres_data/
+data/redis_data/
+data/graph_data/
+data/bm25_index/
+
+# Local virtual environments (Docker only)
+venv*/
+.venv/
+venv_chromadb/
+
+# Process tracking (Docker manages)
+.pids/
+
+# Local logs directory
+logs/
+
 private-docs
