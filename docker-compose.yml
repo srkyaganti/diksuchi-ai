@@ -93,7 +93,7 @@ services:
       - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
       - PYTHON_WORKER_URL=http://rag-api:5001
       - VOICE_SERVICE_URL=http://voice-service:8000
-      - LLM_SERVICE_BASE_URL=${LLM_SERVICE_BASE_URL:-http://host.docker.internal:1234/v1}
+      - LLM_SERVICE_BASE_URL=${LLM_SERVICE_BASE_URL:-http://host.docker.internal:11434/v1}
     ports:
       - "3000:3000"
     depends_on:

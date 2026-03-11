@@ -170,7 +170,7 @@ Expected output:
 
 ### What You Still Need
 
-❌ **Ollama/LM Studio for LLM** - Next.js still uses it for chat (`mistralai/ministral-3-3b`)
+✅ **Ollama for both embeddings and LLM** - Unified inference server
 
 ### Architecture
 
@@ -178,15 +178,15 @@ Expected output:
 ┌─────────────────────────────────────┐
 │ Next.js (Chat Interface)            │
 │  ↓                                   │
-│ LM Studio/Ollama                     │ ← Still need for LLM
-│  → krutrim-ai-labs_Krutrim-2        │
+│ Ollama (port 11434)                  │ ← LLM inference
+│  → llama3.2:3b or your model        │
 └─────────────────────────────────────┘
 
 ┌─────────────────────────────────────┐
 │ Python Worker (RAG/Embeddings)      │
 │  ↓                                   │
-│ Local GGUF File                      │ ← Skip Ollama here
-│  → bge-m3.gguf (2GB)                │
+│ Ollama (port 11434)                  │ ← Embeddings
+│  → bge-m3                           │
 └─────────────────────────────────────┘
 ```
 

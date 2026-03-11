@@ -117,7 +117,7 @@ open http://localhost:3000
 - **Knowledge Graphs:** NetworkX
 
 ### AI/ML
-- **LLM:** LM Studio (local), OpenAI-compatible APIs
+- **LLM:** Ollama (local), OpenAI-compatible APIs
 - **Embeddings:** BGE-M3, Sentence Transformers
 - **STT:** Whisper Large-v3
 - **TTS:** ParlerTTS
