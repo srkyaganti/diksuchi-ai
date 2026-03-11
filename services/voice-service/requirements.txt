@@ -8,7 +8,6 @@ python-multipart~=0.0.22
 faster-whisper~=1.2.1
 
 # TTS Model (Indic Parler TTS)
-torch~=2.5.0
 parler-tts~=0.2.3
 transformers~=4.46.0
 
