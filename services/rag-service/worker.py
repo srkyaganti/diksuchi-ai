@@ -2,6 +2,11 @@
 RQ Worker for document processing.
 Processes documents asynchronously and updates status via callbacks.
 """
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import os
 import sys
 import logging
@@ -14,27 +19,38 @@ from rq import get_current_job
 from rq.worker import Worker
 from redis import Redis
 
-# Add src to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.ingestion.pipeline import IngestionPipeline
 
-# Configure logging
+# --------------------------------------------------
+# Configuration
+# --------------------------------------------------
+
+RAG_REDIS_HOST = os.getenv("RAG_REDIS_HOST", "localhost")
+RAG_REDIS_PORT = int(os.getenv("RAG_REDIS_PORT", "6379"))
+RAG_WEB_CALLBACK_URL = os.getenv("RAG_WEB_CALLBACK_URL", "http://localhost:3000")
+RAG_WEB_API_SECRET = os.getenv("RAG_WEB_API_SECRET", "changeme-in-production")
+RAG_EMBEDDING_MODEL = os.getenv("RAG_EMBEDDING_MODEL", "bge-m3")
+RAG_OLLAMA_URL = os.getenv("RAG_OLLAMA_URL", "http://localhost:11434")
+RAG_CHROMADB_HOST = os.getenv("RAG_CHROMADB_HOST", "localhost")
+RAG_CHROMADB_PORT = int(os.getenv("RAG_CHROMADB_PORT", "8000"))
+
+# --------------------------------------------------
+# Logging Configuration
+# --------------------------------------------------
+
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-# Environment variables
-NEXTJS_CALLBACK_URL = os.getenv("NEXTJS_CALLBACK_URL", "http://localhost:3000")
-NEXTJS_API_SECRET = os.getenv("NEXTJS_API_SECRET", "V4M73S6UetRTScIyQRfQCfNqG17HYESjMeh4T5XOBDQ=")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "bge-m3")
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+# --------------------------------------------------
+# Global Pipeline Instance
+# --------------------------------------------------
 
-# Global pipeline instance (lazy-loaded)
 _pipeline = None
+
 
 def get_pipeline():
     """Lazy initialization of IngestionPipeline with Ollama embeddings."""
@@ -42,17 +58,18 @@ def get_pipeline():
     if _pipeline is None:
         logger.info("Initializing IngestionPipeline with Ollama...")
         _pipeline = IngestionPipeline(
-            ollama_model=OLLAMA_MODEL,
-            ollama_url=OLLAMA_URL
+            ollama_model=RAG_EMBEDDING_MODEL, ollama_url=RAG_OLLAMA_URL
         )
     return _pipeline
 
 
+# --------------------------------------------------
+# Callback Functions
+# --------------------------------------------------
+
+
 async def update_file_status(
-    file_id: str,
-    rag_status: str,
-    rag_error: str = None,
-    processed_at: str = None
+    file_id: str, rag_status: str, rag_error: str = None, processed_at: str = None
 ):
     """
     Send status update callback to Next.js API.
@@ -63,7 +80,7 @@ async def update_file_status(
         rag_error: Error message if failed
         processed_at: ISO timestamp when processing completed
     """
-    callback_url = f"{NEXTJS_CALLBACK_URL}/api/internal/file-status"
+    callback_url = f"{RAG_WEB_CALLBACK_URL}/api/internal/file-status"
 
     payload = {
         "fileId": file_id,
@@ -77,8 +94,8 @@ async def update_file_status(
         payload["processedAt"] = processed_at
 
     headers = {}
-    if NEXTJS_API_SECRET:
-        headers["x-api-secret"] = NEXTJS_API_SECRET
+    if RAG_WEB_API_SECRET:
+        headers["x-api-secret"] = RAG_WEB_API_SECRET
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -87,7 +104,6 @@ async def update_file_status(
             logger.info(f"Status update sent for file {file_id}: {rag_status}")
     except httpx.HTTPError as e:
         logger.error(f"Failed to send status update: {e}")
-        # Don't raise - we don't want callback failures to fail the job
 
 
 def update_job_progress(progress: int, message: str = ""):
@@ -95,13 +111,18 @@ def update_job_progress(progress: int, message: str = ""):
     try:
         job = get_current_job()
         if job:
-            job.meta['progress'] = progress
+            job.meta["progress"] = progress
             if message:
-                job.meta['message'] = message
+                job.meta["message"] = message
             job.save_meta()
             logger.info(f"Job progress: {progress}% - {message}")
     except Exception as e:
         logger.warning(f"Failed to update job progress: {e}")
+
+
+# --------------------------------------------------
+# Document Processing Job
+# --------------------------------------------------
 
 
 def process_document_job(job_data: Dict[str, Any]):
@@ -122,11 +143,11 @@ def process_document_job(job_data: Dict[str, Any]):
     Returns:
         dict: Processing result with status and metadata
     """
-    file_id = job_data['fileId']
-    collection_id = job_data['collectionId']
-    file_name = job_data['fileName']
-    file_path = job_data['filePath']
-    mime_type = job_data['mimeType']
+    file_id = job_data["fileId"]
+    collection_id = job_data["collectionId"]
+    file_name = job_data["fileName"]
+    file_path = job_data["filePath"]
+    mime_type = job_data["mimeType"]
 
     logger.info("=" * 60)
     logger.info(f"Processing document: {file_name}")
@@ -140,26 +161,26 @@ def process_document_job(job_data: Dict[str, Any]):
     logger.info(f"Job start timestamp: {job_start_time}")
 
     try:
-        # Update status to processing
         asyncio.run(update_file_status(file_id, "processing"))
         update_job_progress(10, "Starting document processing")
 
-        # Validate file exists
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        # Get pipeline instance
         pipeline = get_pipeline()
         update_job_progress(25, "Initialized processing pipeline")
 
-        # Determine file type and process accordingly with collection isolation
         if mime_type == "application/pdf" or file_path.endswith(".pdf"):
             logger.info(f"Processing as PDF for collection {collection_id}...")
             update_job_progress(30, "Parsing PDF document")
             asyncio.run(pipeline.process_pdf(file_path, collection_id, file_id))
             update_job_progress(75, "PDF processing completed")
 
-        elif mime_type == "application/xml" or mime_type == "text/xml" or file_path.endswith(".xml"):
+        elif (
+            mime_type == "application/xml"
+            or mime_type == "text/xml"
+            or file_path.endswith(".xml")
+        ):
             logger.info(f"Processing as S1000D XML for collection {collection_id}...")
             update_job_progress(30, "Parsing S1000D XML document")
             asyncio.run(pipeline.process_s1000d(file_path, collection_id, file_id))
@@ -168,36 +189,29 @@ def process_document_job(job_data: Dict[str, Any]):
         elif mime_type == "text/plain" or file_path.endswith(".txt"):
             logger.info(f"Processing as plain text for collection {collection_id}...")
             update_job_progress(30, "Parsing text document")
-            # Process as PDF for now (will chunk and embed plain text)
             asyncio.run(pipeline.process_pdf(file_path, collection_id, file_id))
             update_job_progress(75, "Text processing completed")
 
         else:
             raise ValueError(f"Unsupported file type: {mime_type}")
 
-        # Build BM25 index (collection-specific)
         update_job_progress(85, "Building search indices")
         build_bm25_index(pipeline, collection_id)
 
-        # Mark as completed
         update_job_progress(100, "Document processing completed")
         processed_at = datetime.utcnow().isoformat() + "Z"
-        asyncio.run(update_file_status(
-            file_id,
-            "completed",
-            processed_at=processed_at
-        ))
+        asyncio.run(update_file_status(file_id, "completed", processed_at=processed_at))
 
         job_duration = time.time() - job_start_time
         logger.info(f"Processing completed in {job_duration:.2f} seconds")
-        logger.info(f"✓ Successfully processed document: {file_name}")
+        logger.info(f"Successfully processed document: {file_name}")
 
         return {
             "status": "completed",
             "fileId": file_id,
             "fileName": file_name,
             "processedAt": processed_at,
-            "message": "Document processed successfully"
+            "message": "Document processed successfully",
         }
 
     except FileNotFoundError as e:
@@ -227,51 +241,51 @@ def build_bm25_index(pipeline: IngestionPipeline, collection_id: str):
 
     index_path = f"data/bm25_index/collection_{collection_id}"
 
-    # Skip if index already exists
     if os.path.exists(index_path):
-        logger.info(f"BM25 index already exists for collection {collection_id}, skipping rebuild")
+        logger.info(
+            f"BM25 index already exists for collection {collection_id}, skipping rebuild"
+        )
         return
 
     try:
         logger.info(f"Building BM25 index for collection {collection_id}...")
 
-        # Get the collection-specific ChromaDB collection
         collection = pipeline._get_collection(collection_id)
 
-        # Get all documents from this specific collection
         results = collection.get(include=["documents", "metadatas"])
 
-        if not results['ids']:
-            logger.warning(f"No documents found in collection {collection_id}, skipping BM25 index")
+        if not results["ids"]:
+            logger.warning(
+                f"No documents found in collection {collection_id}, skipping BM25 index"
+            )
             return
 
-        documents = results['documents']
-        ids = results['ids']
-        metadatas = results['metadatas']
+        documents = results["documents"]
+        ids = results["ids"]
+        metadatas = results["metadatas"]
 
-        # Tokenize documents
         corpus_tokens = bm25s.tokenize(documents, stopwords="en")
 
-        # Create BM25 index
         retriever = bm25s.BM25()
         retriever.index(corpus_tokens)
 
-        # Save index with corpus for retrieval
         os.makedirs(index_path, exist_ok=True)
 
-        # Prepare corpus with metadata for retrieval
         corpus_with_meta = [
             {"id": ids[i], "text": documents[i], "metadata": metadatas[i]}
             for i in range(len(ids))
         ]
 
         retriever.save(index_path, corpus=corpus_with_meta)
-        logger.info(f"✓ BM25 index built with {len(documents)} documents")
+        logger.info(f"BM25 index built with {len(documents)} documents")
 
     except Exception as e:
         logger.error(f"Failed to build BM25 index: {e}")
-        # Don't fail the job if BM25 indexing fails
-        # Vector search will still work
+
+
+# --------------------------------------------------
+# Worker Main Function
+# --------------------------------------------------
 
 
 def main():
@@ -281,45 +295,43 @@ def main():
     This function initializes the worker and starts listening for jobs
     from the Redis queue.
     """
-    # Redis connection
-    redis_host = os.getenv("REDIS_HOST", "localhost")
-    redis_port = int(os.getenv("REDIS_PORT", "6379"))
-
     logger.info("=" * 60)
     logger.info("RAG Worker Starting...")
-    logger.info(f"Redis: {redis_host}:{redis_port}")
-    logger.info(f"Ollama Model: {OLLAMA_MODEL}")
-    logger.info(f"Ollama URL: {OLLAMA_URL}")
-    logger.info(f"Callback URL: {NEXTJS_CALLBACK_URL}")
+    logger.info(f"Redis: {RAG_REDIS_HOST}:{RAG_REDIS_PORT}")
+    logger.info(f"Ollama Model: {RAG_EMBEDDING_MODEL}")
+    logger.info(f"Ollama URL: {RAG_OLLAMA_URL}")
+    logger.info(f"ChromaDB: {RAG_CHROMADB_HOST}:{RAG_CHROMADB_PORT}")
+    logger.info(f"Callback URL: {RAG_WEB_CALLBACK_URL}")
     logger.info("=" * 60)
 
     # Verify Ollama is running
     try:
-        import httpx
-        response = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=10.0)
+        response = httpx.get(f"{RAG_OLLAMA_URL}/api/tags", timeout=10.0)
         response.raise_for_status()
         models = response.json().get("models", [])
         model_names = [m.get("name", "").split(":")[0] for m in models]
-        if OLLAMA_MODEL in model_names:
-            logger.info(f"✓ Ollama model '{OLLAMA_MODEL}' is available")
+        if RAG_EMBEDDING_MODEL in model_names:
+            logger.info(f"Ollama model '{RAG_EMBEDDING_MODEL}' is available")
         else:
-            logger.warning(f"⚠️  Model '{OLLAMA_MODEL}' not found. Available: {model_names}")
-            logger.warning(f"   Pull with: ollama pull {OLLAMA_MODEL}")
+            logger.warning(
+                f"Model '{RAG_EMBEDDING_MODEL}' not found. Available: {model_names}"
+            )
+            logger.warning(f"Pull with: ollama pull {RAG_EMBEDDING_MODEL}")
     except Exception as e:
-        logger.error(f"❌ Ollama not running at {OLLAMA_URL}: {e}")
+        logger.error(f"Ollama not running at {RAG_OLLAMA_URL}: {e}")
         logger.error("Please start Ollama: ollama serve")
         sys.exit(1)
 
+    # Connect to Redis
     try:
-        redis_conn = Redis(host=redis_host, port=redis_port)
+        redis_conn = Redis(host=RAG_REDIS_HOST, port=RAG_REDIS_PORT)
         redis_conn.ping()
-        logger.info("✓ Connected to Redis")
+        logger.info("Connected to Redis")
     except Exception as e:
-        logger.error(f"❌ Failed to connect to Redis: {e}")
+        logger.error(f"Failed to connect to Redis: {e}")
         sys.exit(1)
 
-    # SYNCHRONOUS MODE: Process jobs directly in main thread (no subprocess forking)
-    logger.info("✓ Worker initialized (SYNCHRONOUS MODE), listening for jobs...")
+    logger.info("Worker initialized (SYNCHRONOUS MODE), listening for jobs...")
     logger.info("=" * 60)
 
     from rq import Queue
@@ -327,28 +339,24 @@ def main():
 
     queue = Queue("document-processing", connection=redis_conn)
 
-    # Continuously poll and process jobs synchronously
     while True:
         try:
-            # Get job ID from Redis queue list
             job_id = redis_conn.lpop("rq:queue:document-processing")
 
             if job_id:
-                job_id = job_id.decode('utf-8') if isinstance(job_id, bytes) else job_id
+                job_id = job_id.decode("utf-8") if isinstance(job_id, bytes) else job_id
                 logger.info(f"Processing job: {job_id}")
 
-                # Fetch and execute job directly in this process (synchronous)
                 try:
                     job = Job.fetch(job_id, connection=redis_conn)
                     job.set_status("started")
                     job.perform()
                     job.set_status("finished")
-                    logger.info(f"✓ Job completed: {job_id}")
+                    logger.info(f"Job completed: {job_id}")
                 except Exception as job_error:
                     logger.error(f"Job failed: {job_error}", exc_info=True)
                     job.set_status("failed")
             else:
-                # No jobs - sleep briefly and check again
                 time.sleep(1)
         except Exception as e:
             logger.error(f"Error in job loop: {e}", exc_info=True)
