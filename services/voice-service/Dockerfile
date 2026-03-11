@@ -1,5 +1,5 @@
 # Stage 1: Builder - Install dependencies
-FROM nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04 AS builder
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -18,11 +18,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu123 && \
+    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu128 && \
     pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Runtime - Final minimal image
-FROM nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
 
 LABEL maintainer="diksuchi-voice-service"
 LABEL description="Combined STT and TTS Voice Service with GPU/CPU support"
