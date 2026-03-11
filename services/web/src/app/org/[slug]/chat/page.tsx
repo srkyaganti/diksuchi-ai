@@ -3,7 +3,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import {
+  DefaultChatTransport,
+  isTextUIPart,
+  isReasoningUIPart,
+  isFileUIPart,
+  isToolOrDynamicToolUIPart,
+} from "ai";
+import type { UIMessage, ToolUIPart } from "ai";
 import {
   Conversation,
   ConversationContent,
@@ -16,7 +23,20 @@ import {
   MessageResponse,
   MessageActions,
   MessageAction,
+  MessageAttachment,
 } from "@/components/ai-elements/message";
+import {
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+} from "@/components/ai-elements/reasoning";
+import {
+  Tool,
+  ToolHeader,
+  ToolContent,
+  ToolInput,
+  ToolOutput,
+} from "@/components/ai-elements/tool";
 import {
   PromptInput,
   PromptInputBody,
@@ -45,6 +65,28 @@ import { VoiceOutput } from "@/components/chat/voice-output";
 import { toast } from "sonner";
 import { CopyIcon, RefreshCcwIcon } from "lucide-react";
 
+type SourceUrlPartExtended = Extract<
+  UIMessage["parts"][number],
+  { type: "source-url" }
+> & {
+  snippet?: string;
+  relevance?: string;
+};
+
+type SourceDocumentPart = Extract<
+  UIMessage["parts"][number],
+  { type: "source-document" }
+>;
+
+type SourcePart = SourceUrlPartExtended | SourceDocumentPart;
+
+interface SessionApiMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  createdAt: string;
+}
+
 export default function ChatPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -54,7 +96,7 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string>("");
   const [isRecording, setIsRecording] = useState(false);
   const [languageCode, setLanguageCode] = useState<string>("");
-  const [allMessages, setAllMessages] = useState<any[]>([]);
+  const [allMessages, setAllMessages] = useState<UIMessage[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Extract sessionId from URL search parameters
@@ -74,12 +116,15 @@ export default function ChatPage() {
       if (response.ok) {
         const session = await response.json();
         // Convert messages to the format expected by useChat
-        const formattedMessages = session.messages.map((msg: any) => ({
-          id: msg.id,
-          role: msg.role,
-          parts: msg.content ? [{ type: "text", text: msg.content }] : [],
-          createdAt: msg.createdAt,
-        }));
+        const formattedMessages: UIMessage[] = session.messages.map(
+          (msg: SessionApiMessage) => ({
+            id: msg.id,
+            role: msg.role,
+            parts: msg.content
+              ? [{ type: "text" as const, text: msg.content }]
+              : [],
+          })
+        );
         setAllMessages(formattedMessages);
       }
     } catch (error) {
@@ -100,7 +145,7 @@ export default function ChatPage() {
   });
 
   // Combine existing messages with new messages from useChat
-  const [messages, setMessages] = useState<any[]>(allMessages);
+  const [messages, setMessages] = useState<UIMessage[]>(allMessages);
 
   // Update messages when allMessages change (from existing chat load)
   useEffect(() => {
@@ -173,13 +218,13 @@ export default function ChatPage() {
   };
 
   // Extract text from message parts for voice output
-  const extractTextContent = (parts: any[]): string => {
+  const extractTextContent = (parts: UIMessage["parts"]): string => {
     if (!parts || !Array.isArray(parts)) {
       return "";
     }
 
     return parts
-      .filter((part) => part.type === "text")
+      .filter(isTextUIPart)
       .map((part) => part.text)
       .join("\n");
   };
@@ -235,76 +280,128 @@ export default function ChatPage() {
           ) : (
             messages.map((message) => (
               <div key={message.id}>
-                {/* Render sources first if present */}
+                {/* Render sources (url + document) if present */}
                 {message.role === "assistant" &&
                   message.parts &&
-                  message.parts.filter((part) => part.type === "source-url")
-                    .length > 0 && (
-                    <Sources className="mb-2">
-                      <SourcesTrigger
-                        count={
-                          message.parts.filter((part) => part.type === "source-url")
-                            .length
-                        }
-                      />
-                      {message.parts
-                        .filter((part) => part.type === "source-url")
-                        .map((part: any, i) => (
+                  (() => {
+                    const sourceParts = message.parts.filter(
+                      (part): part is SourcePart =>
+                        part.type === "source-url" ||
+                        part.type === "source-document"
+                    );
+                    if (sourceParts.length === 0) return null;
+                    return (
+                      <Sources className="mb-2">
+                        <SourcesTrigger count={sourceParts.length} />
+                        {sourceParts.map((part, i) => (
                           <SourcesContent key={`${message.id}-source-${i}`}>
-                            <Source
-                              href={part.url}
-                              title={part.title}
-                              className="flex flex-col gap-1"
-                            >
-                              <span className="font-medium">{part.title}</span>
-                              {part.snippet && (
-                                <span className="text-xs text-muted-foreground line-clamp-2">
-                                  {part.snippet}
+                            {part.type === "source-url" ? (
+                              <Source
+                                href={part.url}
+                                title={part.title}
+                                className="flex flex-col gap-1"
+                              >
+                                <span className="font-medium">
+                                  {part.title}
                                 </span>
-                              )}
-                              {part.relevance && (
-                                <span className="text-xs text-blue-600">
-                                  Relevance: {part.relevance}
+                                {part.snippet && (
+                                  <span className="text-xs text-muted-foreground line-clamp-2">
+                                    {part.snippet}
+                                  </span>
+                                )}
+                                {part.relevance && (
+                                  <span className="text-xs text-blue-600">
+                                    Relevance: {part.relevance}
+                                  </span>
+                                )}
+                              </Source>
+                            ) : (
+                              <div className="flex flex-col gap-1 rounded-md border p-2">
+                                <span className="font-medium">
+                                  {part.title}
                                 </span>
-                              )}
-                            </Source>
+                                {part.filename && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {part.filename}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </SourcesContent>
                         ))}
-                    </Sources>
-                  )}
+                      </Sources>
+                    );
+                  })()}
 
                 {/* Render message content */}
                 <Message from={message.role}>
                   <MessageContent>
                     {message.parts &&
                       message.parts.map((part, i) => {
-                        if (part.type === "text") {
+                        if (isTextUIPart(part)) {
                           return (
                             <MessageResponse key={`${message.id}-text-${i}`}>
                               {part.text}
                             </MessageResponse>
                           );
                         }
-                        if (part.type === "file") {
+                        if (isFileUIPart(part)) {
                           return (
-                            <div
+                            <MessageAttachment
                               key={`${message.id}-file-${i}`}
-                              className="mb-2"
+                              data={part}
+                            />
+                          );
+                        }
+                        if (isReasoningUIPart(part)) {
+                          return (
+                            <Reasoning
+                              key={`${message.id}-reasoning-${i}`}
+                              isStreaming={part.state === "streaming"}
                             >
-                              {part.mediaType?.startsWith("image/") ? (
-                                <img
-                                  src={part.url}
-                                  alt={part.filename || "Uploaded image"}
-                                  className="max-w-sm rounded-lg"
-                                />
-                              ) : (
-                                <div className="p-3 bg-gray-100 rounded border">
-                                  <span className="text-sm">
-                                    📎 {part.filename || "File"}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
+                              <ReasoningTrigger />
+                              <ReasoningContent>
+                                {part.text}
+                              </ReasoningContent>
+                            </Reasoning>
+                          );
+                        }
+                        if (isToolOrDynamicToolUIPart(part)) {
+                          const toolName =
+                            part.type === "dynamic-tool"
+                              ? part.toolName
+                              : part.type.replace(/^tool-/, "");
+                          return (
+                            <Tool key={`${message.id}-tool-${i}`}>
+                              <ToolHeader
+                                title={toolName}
+                                type={`tool-${toolName}` as ToolUIPart["type"]}
+                                state={part.state}
+                              />
+                              <ToolContent>
+                                <ToolInput input={part.input} />
+                                {part.state === "output-available" && (
+                                  <ToolOutput
+                                    output={part.output}
+                                    errorText={undefined}
+                                  />
+                                )}
+                                {part.state === "output-error" && (
+                                  <ToolOutput
+                                    output={undefined}
+                                    errorText={part.errorText}
+                                  />
+                                )}
+                              </ToolContent>
+                            </Tool>
+                          );
+                        }
+                        if (part.type === "step-start") {
+                          return (
+                            <hr
+                              key={`${message.id}-step-${i}`}
+                              className="my-4 border-border"
+                            />
                           );
                         }
                         return null;
