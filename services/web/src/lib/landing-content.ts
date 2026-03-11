@@ -84,6 +84,7 @@ export const landingContent = {
       "Assamese",
       "English",
     ],
+    techHint: "Voice AI: STT + TTS in 18+ Indian Languages",
   },
 
   documentIntelligence: {
@@ -195,6 +196,7 @@ export const landingContent = {
         description:
           "Add technical manuals, specifications, maintenance guides, and documentation",
         icon: "Upload",
+        badge: "PDF, DOCX, S1000D",
       },
       {
         number: 2,
@@ -202,6 +204,7 @@ export const landingContent = {
         description:
           "Diksuchi analyzes and understands your documents' structure and content",
         icon: "Brain",
+        badge: "AI-Powered",
       },
       {
         number: 3,
@@ -209,6 +212,7 @@ export const landingContent = {
         description:
           "Use voice or text in any of 18+ Indian languages to query your knowledge base",
         icon: "MessageCircle",
+        badge: "18+ Languages",
       },
       {
         number: 4,
@@ -216,6 +220,7 @@ export const landingContent = {
         description:
           "Receive accurate responses with source citations you can verify",
         icon: "CheckCircle",
+        badge: "With Sources",
       },
     ],
   },
