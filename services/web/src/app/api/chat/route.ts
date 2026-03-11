@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Initialize LM Studio LLM Service provider (OpenAI-compatible)
-    const llmServiceUrl = process.env.LLM_SERVICE_BASE_URL || "http://localhost:1234/v1";
-    const modelName = process.env.LLM_MODEL || "mistralai/ministral-3-3b";
+    // Initialize Ollama LLM Service provider (OpenAI-compatible)
+    const llmServiceUrl = process.env.LLM_SERVICE_BASE_URL || "http://localhost:11434/v1";
+    const modelName = process.env.LLM_MODEL || "llama3.2:3b";
     console.log("🤖 LLM Service Configuration:", {
       baseURL: llmServiceUrl,
       model: modelName,

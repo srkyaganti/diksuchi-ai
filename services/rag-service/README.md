@@ -70,13 +70,11 @@ cp .env.example .env
 ```
 
 Required variables:
-- `DATABASE_URL`: PostgreSQL connection string
 - `REDIS_HOST`, `REDIS_PORT`: Redis connection
 - `CHROMADB_HOST`, `CHROMADB_PORT`: ChromaDB connection
-- `OLLAMA_BASE_URL`: Ollama server URL (if using Ollama)
-- `NEXTJS_CALLBACK_URL`: Next.js app URL for callbacks
-- `NEXTJS_API_SECRET`: Shared secret for callback authentication
-- `EMBEDDING_MODEL_PATH`: Path to BGE-M3 sentence-transformers model directory (default: `models/bge-m3`)
+- `RAG_OLLAMA_URL`: Ollama server URL
+- `RAG_WEB_CALLBACK_URL`: Next.js app URL for callbacks
+- `RAG_WEB_API_SECRET`: Shared secret for callback authentication
 
 ## Running Locally
 
