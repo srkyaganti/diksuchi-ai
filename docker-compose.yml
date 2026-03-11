@@ -175,7 +175,7 @@ services:
       - VOICE_SERVICE_PORT=8000
       - HF_TOKEN=${HF_TOKEN}
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - voice_models:/root/.cache/huggingface/hub
     deploy:
