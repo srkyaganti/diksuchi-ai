@@ -106,31 +106,31 @@ services:
   # APPLICATION SERVICES
   # ============================================================
 
-  web:
-    build:
-      context: ./services/web
-      dockerfile: Dockerfile
-    container_name: diksuchi-web
-    environment:
-      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/diksuchi
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
-      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
-      - PYTHON_WORKER_URL=http://rag-api:5001
-      - VOICE_SERVICE_URL=http://voice-service:8000
-      - LLM_SERVICE_BASE_URL=${LLM_SERVICE_BASE_URL:-http://ollama:11434/v1}
-    ports:
-      - "3000:3000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - uploads_data:/app/uploads
-    restart: unless-stopped
-    networks:
-      - diksuchi-network
+  # web:
+  #   build:
+  #     context: ./services/web
+  #     dockerfile: Dockerfile
+  #   container_name: diksuchi-web
+  #   environment:
+  #     - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/diksuchi
+  #     - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+  #     - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
+  #     - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
+  #     - PYTHON_WORKER_URL=http://rag-api:5001
+  #     - VOICE_SERVICE_URL=http://voice-service:8000
+  #     - LLM_SERVICE_BASE_URL=${LLM_SERVICE_BASE_URL:-http://ollama:11434/v1}
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   volumes:
+  #     - uploads_data:/app/uploads
+  #   restart: unless-stopped
+  #   networks:
+  #     - diksuchi-network
 
   rag-api:
     build:

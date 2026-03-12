@@ -32,6 +32,7 @@ from transformers import AutoTokenizer
 STT_MODEL_NAME = os.getenv("STT_MODEL_NAME", "large-v3")
 STT_DEVICE = os.getenv("STT_DEVICE", "cuda")
 STT_COMPUTE_TYPE = os.getenv("STT_COMPUTE_TYPE", "float16")
+STT_VAD_FILTER = os.getenv("STT_VAD_FILTER", "false").lower() == "true"
 
 # TTS Configuration
 TTS_MODEL_NAME = os.getenv("TTS_MODEL_NAME", "ai4bharat/indic-parler-tts")
@@ -353,7 +354,7 @@ def stt_health():
 
 
 @app.post("/stt/transcribe")
-async def stt_transcribe(file: UploadFile = File(...)):
+async def stt_transcribe(file: UploadFile = File(...), vad_filter: bool = STT_VAD_FILTER):
     """
     Transcribe a single audio file.
 
@@ -366,7 +367,7 @@ async def stt_transcribe(file: UploadFile = File(...)):
         file_bytes = await file.read()
         audio = load_audio(file_bytes)
 
-        segments, info = stt_model.transcribe(audio, beam_size=5, vad_filter=True)
+        segments, info = stt_model.transcribe(audio, beam_size=5, vad_filter=vad_filter)
 
         segments_out = []
         full_text = []

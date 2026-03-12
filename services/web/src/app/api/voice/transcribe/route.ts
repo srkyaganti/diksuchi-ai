@@ -29,17 +29,15 @@ export async function POST(request: NextRequest) {
     // Whisper server expects "file" field with WAV audio
     // Audio is already converted to WAV format in the voice-input component
     whisperFormData.append("file", audioBlob, "audio.wav");
-    whisperFormData.append("temperature", "0.0");
-    whisperFormData.append("response_format", "verbose_json");
 
     console.log("Sending to Voice Service STT:", {
-      url: `${VOICE_SERVICE_URL}/stt/transcribe`,
+      url: `${VOICE_SERVICE_URL}/stt/transcribe?vad_filter=false`,
       blobSize: audioBlob.size,
       blobType: audioBlob.type,
     });
 
     // Send to Voice Service
-    const whisperResponse = await fetch(`${VOICE_SERVICE_URL}/stt/transcribe`, {
+    const whisperResponse = await fetch(`${VOICE_SERVICE_URL}/stt/transcribe?vad_filter=false`, {
       method: "POST",
       body: whisperFormData,
     });
