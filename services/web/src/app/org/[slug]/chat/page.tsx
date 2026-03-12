@@ -134,7 +134,7 @@ export default function ChatPage() {
     }
   };
 
-  const { sendMessage, status, regenerate } = useChat({
+  const { sendMessage, status, regenerate, messages: chatMessages } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
     }),
@@ -152,7 +152,21 @@ export default function ChatPage() {
     setMessages(allMessages);
   }, [allMessages]);
 
-  // Update allMessages when new messages are added by useChat
+  // Merge chatMessages from useChat with existing messages
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const newMsgs = chatMessages.filter((m) => !existingIds.has(m.id));
+        if (newMsgs.length > 0) {
+          return [...prev, ...newMsgs];
+        }
+        return prev;
+      });
+    }
+  }, [chatMessages]);
+
+  // Update allMessages when new messages are added
   useEffect(() => {
     if (messages.length > allMessages.length) {
       setAllMessages(messages);
