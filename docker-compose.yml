@@ -151,6 +151,13 @@ services:
     volumes:
       - storage_data:/app/storage
       - uploads_data:/app/uploads:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: unless-stopped
     networks:
       - diksuchi-network
