@@ -14,15 +14,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict
 
+from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.pipeline_options import ThreadedPdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.pipeline.threaded_standard_pdf_pipeline import ThreadedStandardPdfPipeline
 from docling_core.types.doc import PictureItem, TableItem
 
 logger = logging.getLogger(__name__)
 
 IMAGE_RESOLUTION_SCALE = 2.0
-
 
 @dataclass
 class DoclingResult:
@@ -33,7 +34,14 @@ class DoclingResult:
 
 
 def _build_converter() -> DocumentConverter:
-    pipeline_options = PdfPipelineOptions()
+    accelerator_options = AcceleratorOptions(device=AcceleratorDevice.CUDA)
+
+    pipeline_options = ThreadedPdfPipelineOptions(
+        accelerator_options=accelerator_options,
+        layout_batch_size=64,
+        ocr_batch_size=4,
+        table_batch_size=4,
+    )
     pipeline_options.images_scale = IMAGE_RESOLUTION_SCALE
     pipeline_options.generate_picture_images = True
     pipeline_options.generate_page_images = False
@@ -41,7 +49,10 @@ def _build_converter() -> DocumentConverter:
     return DocumentConverter(
         allowed_formats=[InputFormat.PDF],
         format_options={
-            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
+            InputFormat.PDF: PdfFormatOption(
+                pipeline_cls=ThreadedStandardPdfPipeline,
+                pipeline_options=pipeline_options,
+            ),
         },
     )
 
