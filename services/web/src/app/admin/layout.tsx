@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { AppSidebar } from "@/components/app-sidebar";
+import { Navbar } from "@/components/navbar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export default async function AdminLayout({
@@ -32,6 +33,7 @@ export default async function AdminLayout({
     >
       <AppSidebar variant="inset" />
       <SidebarInset>
+        <Navbar />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             {children}

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { signIn } from "@/lib/auth-client";
+import { BrandHeader, BrandFooter } from "@/components/brand-header";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -53,7 +54,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
+      <BrandHeader variant="full" />
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
@@ -96,6 +98,7 @@ export default function LoginPage() {
           </form>
         </CardContent>
       </Card>
+      <BrandFooter />
     </div>
   );
 }

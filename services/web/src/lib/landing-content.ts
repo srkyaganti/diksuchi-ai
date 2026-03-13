@@ -327,7 +327,7 @@ export const landingContent = {
         ],
       },
     ],
-    copyright: `© ${new Date().getFullYear()} Diksuchi AI. All rights reserved.`,
+    copyright: `© ${new Date().getFullYear()} AVision Systems Pvt Ltd. All rights reserved.`,
   },
 };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -29,8 +30,17 @@ export function NavigationHeader({
         <div className="flex h-16 items-center justify-between">
           {/* Logo/Brand */}
           <div className="flex items-center">
-            <Link href="/" className="text-xl font-bold">
-              {navigation.brand}
+            <Link href="/" className="flex items-center gap-2">
+              <span className="text-xl font-bold">Diksuchi</span>
+              <span className="text-muted-foreground text-xl font-light">|</span>
+              <Image
+                src="/avision_logo.png"
+                alt="AVision Systems"
+                width={120}
+                height={36}
+                className="h-8 w-auto object-contain"
+                priority
+              />
             </Link>
           </div>
 
