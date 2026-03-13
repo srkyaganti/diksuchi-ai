@@ -307,23 +307,12 @@ export const landingContent = {
         title: "Resources",
         links: [
           { label: "Documentation", href: "/docs" },
-          { label: "Support", href: "#" },
-          { label: "API Reference", href: "#" },
-        ],
-      },
-      {
-        title: "Legal",
-        links: [
-          { label: "Privacy Policy", href: "#" },
-          { label: "Terms of Service", href: "#" },
-          { label: "Compliance", href: "#" },
         ],
       },
       {
         title: "Contact",
         links: [
-          { label: "Support", href: "mailto:support@diksuchi.ai" },
-          { label: "GitHub", href: "#" },
+          { label: "Support", href: "mailto:info@avisionsystems.com" },
         ],
       },
     ],

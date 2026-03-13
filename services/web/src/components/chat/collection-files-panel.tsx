@@ -22,7 +22,7 @@ interface Collection {
 
 interface FileItem {
   id: string;
-  filename: string;
+  name: string;
   mimeType?: string;
   status?: string;
 }
@@ -154,14 +154,21 @@ export const CollectionFilesPanel = ({
 
             return (
               <div key={collection.id}>
-                <button
+                <div
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent",
+                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent cursor-pointer",
                     isSelected && "bg-accent font-medium"
                   )}
                   onClick={() => handleSelectCollection(collection.id)}
-                  aria-label={`Select collection ${collection.name}`}
+                  role="button"
                   tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleSelectCollection(collection.id);
+                    }
+                  }}
+                  aria-label={`Select collection ${collection.name}`}
                 >
                   <button
                     className="shrink-0 p-0.5 rounded hover:bg-accent-foreground/10"
@@ -194,7 +201,7 @@ export const CollectionFilesPanel = ({
                   >
                     {fileCount}
                   </Badge>
-                </button>
+                </div>
 
                 {isExpanded && (
                   <div className="ml-6 mt-0.5 space-y-0.5 border-l pl-2">
@@ -210,7 +217,7 @@ export const CollectionFilesPanel = ({
                           className="flex items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
                         >
                           <IconFile className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{file.filename}</span>
+                          <span className="truncate">{file.name}</span>
                         </div>
                       ))
                     ) : (
