@@ -13,18 +13,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Diksuchi AI - Next-Generation Intelligence for Defence",
+  title: "Diksuchi AI | AVision Systems",
   description:
     "Transform how defence forces and contractors access critical documentation. Voice-enabled, AI-powered document intelligence in 18+ Indian languages.",
   openGraph: {
-    title: "Diksuchi AI - Next-Generation Intelligence for Defence",
+    title: "Diksuchi AI | AVision Systems",
     description:
       "Voice-enabled document intelligence platform for Indian defence forces and contractors. Speak in your language, get instant answers from technical documentation.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Diksuchi AI - Next-Generation Intelligence for Defence",
+    title: "Diksuchi AI | AVision Systems",
     description:
       "Voice-enabled document intelligence platform for Indian defence forces and contractors. Speak in your language, get instant answers from technical documentation.",
   },

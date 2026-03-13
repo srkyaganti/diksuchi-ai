@@ -4,7 +4,7 @@
 # 
 # Usage:
 #   docker-compose up -d              # Start all services
-#   docker-compose up -d rag-api tts  # Start specific services
+#   docker-compose up -d rag-api      # Start specific services
 #   docker-compose logs -f            # View logs
 #   docker-compose down               # Stop all services
 #
@@ -53,27 +53,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
-    networks:
-      - diksuchi-network
-
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: diksuchi-chromadb
-    environment:
-      - IS_PERSISTENT=TRUE
-      - PERSIST_DIRECTORY=/chroma/chroma
-      - ANONYMIZED_TELEMETRY=${CHROMA_TELEMETRY:-FALSE}
-    volumes:
-      - chromadb_data:/chroma/chroma
-    ports:
-      - "8000:8000"
-    healthcheck:
-      test: ["CMD-SHELL", "exit 0"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
     restart: unless-stopped
     networks:
       - diksuchi-network
@@ -128,6 +107,7 @@ services:
   #       condition: service_healthy
   #   volumes:
   #     - uploads_data:/app/uploads
+  #     - storage_data:/app/storage:ro
   #   restart: unless-stopped
   #   networks:
   #     - diksuchi-network
@@ -142,19 +122,13 @@ services:
       - RAG_REDIS_PORT=6379
       - RAG_WEB_CALLBACK_URL=http://web:3000
       - RAG_WEB_API_SECRET=${INTERNAL_API_SECRET}
-      - RAG_EMBEDDING_MODEL=${RAG_EMBEDDING_MODEL:-bge-m3}
-      - RAG_OLLAMA_URL=${RAG_OLLAMA_URL:-http://ollama:11434}
-      - RAG_CHROMADB_HOST=chromadb
-      - RAG_CHROMADB_PORT=8000
     ports:
       - "5001:5001"
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_healthy
     volumes:
-      - rag_data:/app/data
+      - storage_data:/app/storage
       - uploads_data:/app/uploads:ro
     restart: unless-stopped
     networks:
@@ -170,17 +144,12 @@ services:
       - RAG_REDIS_PORT=6379
       - RAG_WEB_CALLBACK_URL=http://web:3000
       - RAG_WEB_API_SECRET=${INTERNAL_API_SECRET}
-      - RAG_EMBEDDING_MODEL=${RAG_EMBEDDING_MODEL:-bge-m3}
-      - RAG_OLLAMA_URL=${RAG_OLLAMA_URL:-http://ollama:11434}
-      - RAG_CHROMADB_HOST=chromadb
-      - RAG_CHROMADB_PORT=8000
+      - DOCLING_STORAGE_PATH=/app/storage
     depends_on:
       redis:
         condition: service_healthy
-      chromadb:
-        condition: service_healthy
     volumes:
-      - rag_data:/app/data
+      - storage_data:/app/storage
       - uploads_data:/app/uploads:ro
     restart: unless-stopped
     networks:
@@ -229,9 +198,7 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  chromadb_data:
-    driver: local
-  rag_data:
+  storage_data:
     driver: local
   uploads_data:
     driver: local

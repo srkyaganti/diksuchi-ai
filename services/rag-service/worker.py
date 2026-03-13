@@ -1,6 +1,9 @@
 """
-RQ Worker for document processing.
-Processes documents asynchronously and updates status via callbacks.
+Document Processing Worker
+
+Processes documents asynchronously via Redis (RQ) queue.
+Converts PDFs to structured JSON using Docling and stores the result
+alongside extracted images.
 """
 
 from dotenv import load_dotenv
@@ -12,16 +15,16 @@ import sys
 import logging
 import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 import httpx
 from rq import get_current_job
-from rq.worker import Worker
 from redis import Redis
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.ingestion.pipeline import IngestionPipeline
+from src.ingestion.docling_converter import convert_pdf
+from src.storage.document_store import save_document
 
 # --------------------------------------------------
 # Configuration
@@ -31,10 +34,6 @@ RAG_REDIS_HOST = os.getenv("RAG_REDIS_HOST", "localhost")
 RAG_REDIS_PORT = int(os.getenv("RAG_REDIS_PORT", "6379"))
 RAG_WEB_CALLBACK_URL = os.getenv("RAG_WEB_CALLBACK_URL", "http://localhost:3000")
 RAG_WEB_API_SECRET = os.getenv("RAG_WEB_API_SECRET", "changeme-in-production")
-RAG_EMBEDDING_MODEL = os.getenv("RAG_EMBEDDING_MODEL", "bge-m3")
-RAG_OLLAMA_URL = os.getenv("RAG_OLLAMA_URL", "http://localhost:11434")
-RAG_CHROMADB_HOST = os.getenv("RAG_CHROMADB_HOST", "localhost")
-RAG_CHROMADB_PORT = int(os.getenv("RAG_CHROMADB_PORT", "8000"))
 
 # --------------------------------------------------
 # Logging Configuration
@@ -45,23 +44,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --------------------------------------------------
-# Global Pipeline Instance
-# --------------------------------------------------
-
-_pipeline = None
-
-
-def get_pipeline():
-    """Lazy initialization of IngestionPipeline with Ollama embeddings."""
-    global _pipeline
-    if _pipeline is None:
-        logger.info("Initializing IngestionPipeline with Ollama...")
-        _pipeline = IngestionPipeline(
-            ollama_model=RAG_EMBEDDING_MODEL, ollama_url=RAG_OLLAMA_URL
-        )
-    return _pipeline
-
 
 # --------------------------------------------------
 # Callback Functions
@@ -71,15 +53,7 @@ def get_pipeline():
 async def update_file_status(
     file_id: str, rag_status: str, rag_error: str = None, processed_at: str = None
 ):
-    """
-    Send status update callback to Next.js API.
-
-    Args:
-        file_id: The file ID to update
-        rag_status: Status to set (none, processing, completed, failed)
-        rag_error: Error message if failed
-        processed_at: ISO timestamp when processing completed
-    """
+    """Send status update callback to Next.js API."""
     callback_url = f"{RAG_WEB_CALLBACK_URL}/api/internal/file-status"
 
     payload = {
@@ -127,10 +101,10 @@ def update_job_progress(progress: int, message: str = ""):
 
 def process_document_job(job_data: Dict[str, Any]):
     """
-    Main worker function to process a document.
+    Main worker function to process a document via Docling.
 
-    This function is called by RQ workers and processes documents through
-    the complete ingestion pipeline.
+    Converts the PDF to structured JSON, extracts images, and stores
+    both to disk under storage/{uuid}/.
 
     Args:
         job_data: Dictionary containing:
@@ -139,6 +113,7 @@ def process_document_job(job_data: Dict[str, Any]):
             - fileName: Original filename
             - filePath: Absolute path to the uploaded file
             - mimeType: MIME type of the file
+            - uuid: Unique storage identifier for the file
 
     Returns:
         dict: Processing result with status and metadata
@@ -148,17 +123,18 @@ def process_document_job(job_data: Dict[str, Any]):
     file_name = job_data["fileName"]
     file_path = job_data["filePath"]
     mime_type = job_data["mimeType"]
+    file_uuid = job_data["uuid"]
 
     logger.info("=" * 60)
     logger.info(f"Processing document: {file_name}")
     logger.info(f"File ID: {file_id}")
+    logger.info(f"UUID: {file_uuid}")
     logger.info(f"Collection ID: {collection_id}")
     logger.info(f"File Path: {file_path}")
     logger.info(f"MIME Type: {mime_type}")
     logger.info("=" * 60)
 
     job_start_time = time.time()
-    logger.info(f"Job start timestamp: {job_start_time}")
 
     try:
         asyncio.run(update_file_status(file_id, "processing"))
@@ -167,39 +143,26 @@ def process_document_job(job_data: Dict[str, Any]):
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        pipeline = get_pipeline()
-        update_job_progress(25, "Initialized processing pipeline")
-
         if mime_type == "application/pdf" or file_path.endswith(".pdf"):
-            logger.info(f"Processing as PDF for collection {collection_id}...")
-            update_job_progress(30, "Parsing PDF document")
-            asyncio.run(pipeline.process_pdf(file_path, collection_id, file_id))
-            update_job_progress(75, "PDF processing completed")
+            update_job_progress(20, "Running Docling conversion")
 
-        elif (
-            mime_type == "application/xml"
-            or mime_type == "text/xml"
-            or file_path.endswith(".xml")
-        ):
-            logger.info(f"Processing as S1000D XML for collection {collection_id}...")
-            update_job_progress(30, "Parsing S1000D XML document")
-            asyncio.run(pipeline.process_s1000d(file_path, collection_id, file_id))
-            update_job_progress(75, "S1000D processing completed")
+            result = convert_pdf(file_path)
+            update_job_progress(70, "Docling conversion complete")
 
-        elif mime_type == "text/plain" or file_path.endswith(".txt"):
-            logger.info(f"Processing as plain text for collection {collection_id}...")
-            update_job_progress(30, "Parsing text document")
-            asyncio.run(pipeline.process_pdf(file_path, collection_id, file_id))
-            update_job_progress(75, "Text processing completed")
+            update_job_progress(80, "Saving document and images")
+            save_document(
+                uuid=file_uuid,
+                docling_json=result.document_json,
+                images=result.images,
+                document_id=file_uuid,
+            )
+            update_job_progress(95, "Document stored")
 
         else:
             raise ValueError(f"Unsupported file type: {mime_type}")
 
-        update_job_progress(85, "Building search indices")
-        build_bm25_index(pipeline, collection_id)
-
         update_job_progress(100, "Document processing completed")
-        processed_at = datetime.utcnow().isoformat() + "Z"
+        processed_at = datetime.now(timezone.utc).isoformat()
         asyncio.run(update_file_status(file_id, "completed", processed_at=processed_at))
 
         job_duration = time.time() - job_start_time
@@ -209,6 +172,7 @@ def process_document_job(job_data: Dict[str, Any]):
         return {
             "status": "completed",
             "fileId": file_id,
+            "uuid": file_uuid,
             "fileName": file_name,
             "processedAt": processed_at,
             "message": "Document processed successfully",
@@ -227,102 +191,19 @@ def process_document_job(job_data: Dict[str, Any]):
         raise
 
 
-def build_bm25_index(pipeline: IngestionPipeline, collection_id: str):
-    """
-    Build or update BM25 keyword search index for a specific collection.
-
-    Args:
-        pipeline: IngestionPipeline instance
-        collection_id: Collection ID to build index for
-
-    This ensures BM25 indices are isolated per collection.
-    """
-    import bm25s
-
-    index_path = f"data/bm25_index/collection_{collection_id}"
-
-    if os.path.exists(index_path):
-        logger.info(
-            f"BM25 index already exists for collection {collection_id}, skipping rebuild"
-        )
-        return
-
-    try:
-        logger.info(f"Building BM25 index for collection {collection_id}...")
-
-        collection = pipeline._get_collection(collection_id)
-
-        results = collection.get(include=["documents", "metadatas"])
-
-        if not results["ids"]:
-            logger.warning(
-                f"No documents found in collection {collection_id}, skipping BM25 index"
-            )
-            return
-
-        documents = results["documents"]
-        ids = results["ids"]
-        metadatas = results["metadatas"]
-
-        corpus_tokens = bm25s.tokenize(documents, stopwords="en")
-
-        retriever = bm25s.BM25()
-        retriever.index(corpus_tokens)
-
-        os.makedirs(index_path, exist_ok=True)
-
-        corpus_with_meta = [
-            {"id": ids[i], "text": documents[i], "metadata": metadatas[i]}
-            for i in range(len(ids))
-        ]
-
-        retriever.save(index_path, corpus=corpus_with_meta)
-        logger.info(f"BM25 index built with {len(documents)} documents")
-
-    except Exception as e:
-        logger.error(f"Failed to build BM25 index: {e}")
-
-
 # --------------------------------------------------
 # Worker Main Function
 # --------------------------------------------------
 
 
 def main():
-    """
-    Start the RQ worker.
-
-    This function initializes the worker and starts listening for jobs
-    from the Redis queue.
-    """
+    """Start the document processing worker."""
     logger.info("=" * 60)
-    logger.info("RAG Worker Starting...")
+    logger.info("Document Processing Worker Starting...")
     logger.info(f"Redis: {RAG_REDIS_HOST}:{RAG_REDIS_PORT}")
-    logger.info(f"Ollama Model: {RAG_EMBEDDING_MODEL}")
-    logger.info(f"Ollama URL: {RAG_OLLAMA_URL}")
-    logger.info(f"ChromaDB: {RAG_CHROMADB_HOST}:{RAG_CHROMADB_PORT}")
     logger.info(f"Callback URL: {RAG_WEB_CALLBACK_URL}")
     logger.info("=" * 60)
 
-    # Verify Ollama is running
-    try:
-        response = httpx.get(f"{RAG_OLLAMA_URL}/api/tags", timeout=10.0)
-        response.raise_for_status()
-        models = response.json().get("models", [])
-        model_names = [m.get("name", "").split(":")[0] for m in models]
-        if RAG_EMBEDDING_MODEL in model_names:
-            logger.info(f"Ollama model '{RAG_EMBEDDING_MODEL}' is available")
-        else:
-            logger.warning(
-                f"Model '{RAG_EMBEDDING_MODEL}' not found. Available: {model_names}"
-            )
-            logger.warning(f"Pull with: ollama pull {RAG_EMBEDDING_MODEL}")
-    except Exception as e:
-        logger.error(f"Ollama not running at {RAG_OLLAMA_URL}: {e}")
-        logger.error("Please start Ollama: ollama serve")
-        sys.exit(1)
-
-    # Connect to Redis
     try:
         redis_conn = Redis(host=RAG_REDIS_HOST, port=RAG_REDIS_PORT)
         redis_conn.ping()
@@ -331,13 +212,10 @@ def main():
         logger.error(f"Failed to connect to Redis: {e}")
         sys.exit(1)
 
-    logger.info("Worker initialized (SYNCHRONOUS MODE), listening for jobs...")
+    logger.info("Worker initialized, listening for jobs...")
     logger.info("=" * 60)
 
-    from rq import Queue
     from rq.job import Job
-
-    queue = Queue("document-processing", connection=redis_conn)
 
     while True:
         try:

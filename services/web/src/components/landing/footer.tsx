@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { landingContent } from "@/lib/landing-content";
 
@@ -9,9 +10,28 @@ export function Footer() {
     <footer className="w-full border-t bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
         {/* Brand Section */}
-        <div className="mb-8">
-          <h3 className="text-xl font-bold mb-2">{footer.brand}</h3>
-          <p className="text-sm text-muted-foreground">{footer.tagline}</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-xl font-bold">Diksuchi</h3>
+              <span className="text-muted-foreground text-xl font-light">|</span>
+              <Image
+                src="/avision_logo.png"
+                alt="AVision Systems"
+                width={120}
+                height={36}
+                className="h-8 w-auto object-contain"
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">{footer.tagline}</p>
+          </div>
+          <Image
+            src="/make-in-india-logo.png"
+            alt="Make in India"
+            width={100}
+            height={60}
+            className="h-14 w-auto object-contain"
+          />
         </div>
 
         <Separator className="my-8" />
@@ -44,8 +64,15 @@ export function Footer() {
         <Separator className="my-8" />
 
         {/* Copyright */}
-        <div className="text-center text-sm text-muted-foreground">
-          {footer.copyright}
+        <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+          <span>{footer.copyright}</span>
+          <Image
+            src="/make-in-india-logo.png"
+            alt="Make in India"
+            width={60}
+            height={36}
+            className="h-8 w-auto object-contain"
+          />
         </div>
       </div>
     </footer>

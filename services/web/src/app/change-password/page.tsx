@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
+import { BrandHeader, BrandFooter } from "@/components/brand-header";
 
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -74,7 +75,8 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
+      <BrandHeader variant="full" />
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Change Password</CardTitle>
@@ -137,6 +139,7 @@ export default function ChangePasswordPage() {
           </form>
         </CardContent>
       </Card>
+      <BrandFooter />
     </div>
   );
 }

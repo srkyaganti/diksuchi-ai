@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { DocsNavigation } from './docs-navigation';
 import { MobileDocsNavigation } from './mobile-docs-navigation';
 import { NavigationHeader } from '@/components/landing/navigation-header';
@@ -20,7 +21,16 @@ export function DocsLayout({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Hero */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold mb-4">Diksuchi AI Documentation</h1>
+          <div className="flex items-center gap-3 mb-4">
+            <h1 className="text-4xl font-bold">Diksuchi AI Documentation</h1>
+            <Image
+              src="/avision_logo.png"
+              alt="AVision Systems"
+              width={140}
+              height={42}
+              className="h-10 w-auto object-contain"
+            />
+          </div>
           <p className="text-xl text-muted-foreground">
             Complete guide to using all platform features
           </p>

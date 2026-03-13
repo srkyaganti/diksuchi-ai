@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
         fileName: file.name,
         filePath: filePath,
         mimeType: file.type,
+        uuid: uuid,
       });
       console.log(`Document processing job submitted for file: ${file.name}`);
     } catch (workerError) {
