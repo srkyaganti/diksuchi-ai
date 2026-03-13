@@ -69,8 +69,8 @@ COPY --chown=appuser:appuser worker.py .
 COPY --chown=appuser:appuser requirements.txt .
 COPY --chown=appuser:appuser src ./src
 
-RUN mkdir -p /app/data/chroma_db /app/data/bm25_index /app/data/graphs && \
-    chown -R appuser:appuser /app/data
+RUN mkdir -p /app/data/chroma_db /app/data/bm25_index /app/data/graphs /app/storage && \
+    chown -R appuser:appuser /app/data /app/storage
 
 USER appuser
 
