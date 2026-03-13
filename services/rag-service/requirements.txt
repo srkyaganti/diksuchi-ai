@@ -11,6 +11,7 @@ rq==1.16.1
 
 # Document Processing (Docling)
 docling==2.79.0
+onnxruntime==1.21.1
 
 # XML Processing (retained for future S1000D support)
 lxml==5.1.0
