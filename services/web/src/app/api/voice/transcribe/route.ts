@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const audioBlob = formData.get("audio") as Blob;
+    const inputLanguageCode = formData.get("languageCode") as string | null;
 
     if (!audioBlob) {
       return NextResponse.json({ error: "No audio provided" }, { status: 400 });
@@ -26,18 +27,24 @@ export async function POST(request: NextRequest) {
 
     // Prepare FormData for Whisper server
     const whisperFormData = new FormData();
-    // Whisper server expects "file" field with WAV audio
-    // Audio is already converted to WAV format in the voice-input component
     whisperFormData.append("file", audioBlob, "audio.wav");
 
+    // Build URL with query params
+    const whisperUrl = new URL(`${VOICE_SERVICE_URL}/stt/transcribe`);
+    whisperUrl.searchParams.set("vad_filter", "false");
+    if (inputLanguageCode) {
+      whisperUrl.searchParams.set("language", inputLanguageCode);
+    }
+
     console.log("Sending to Voice Service STT:", {
-      url: `${VOICE_SERVICE_URL}/stt/transcribe?vad_filter=false`,
+      url: whisperUrl.toString(),
       blobSize: audioBlob.size,
       blobType: audioBlob.type,
+      languageCode: inputLanguageCode || "auto-detect",
     });
 
     // Send to Voice Service
-    const whisperResponse = await fetch(`${VOICE_SERVICE_URL}/stt/transcribe?vad_filter=false`, {
+    const whisperResponse = await fetch(whisperUrl.toString(), {
       method: "POST",
       body: whisperFormData,
     });

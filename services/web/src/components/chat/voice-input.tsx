@@ -2,8 +2,29 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Mic, StopCircle, CheckCircle, XCircle, Download } from "lucide-react";
 import { toast } from "sonner";
+
+const SUPPORTED_LANGUAGES = [
+  { code: "auto", name: "Auto Detect" },
+  { code: "en", name: "English" },
+  { code: "hi", name: "Hindi" },
+  { code: "bn", name: "Bengali" },
+  { code: "ta", name: "Tamil" },
+  { code: "te", name: "Telugu" },
+  { code: "mr", name: "Marathi" },
+  { code: "gu", name: "Gujarati" },
+  { code: "kn", name: "Kannada" },
+  { code: "ml", name: "Malayalam" },
+  { code: "pa", name: "Punjabi" },
+] as const;
 
 interface OnTranscribedProps {
 	text: string;
@@ -20,6 +41,7 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("auto");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -111,6 +133,9 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
     try {
       const formData = new FormData();
       formData.append("audio", wavBlobRef.current);
+      if (selectedLanguage && selectedLanguage !== "auto") {
+        formData.append("languageCode", selectedLanguage);
+      }
 
       const response = await fetch("/api/voice/transcribe", {
         method: "POST",
@@ -139,7 +164,7 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [audioUrl, onTranscribed]);
+  }, [audioUrl, onTranscribed, selectedLanguage]);
 
   const cancelAndRerecord = useCallback(() => {
     setIsReviewing(false);
@@ -164,27 +189,50 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center">
         {!isRecording && !isReviewing ? (
-          <Button
-            onClick={startRecording}
-            disabled={isDisabled || isProcessing}
-            size="sm"
-            variant="secondary"
-          >
-            <Mic className="w-4 h-4 mr-2" />
-            {isProcessing ? "Processing..." : "Record"}
-          </Button>
+          <>
+            <Select
+              value={selectedLanguage}
+              onValueChange={setSelectedLanguage}
+              disabled={isDisabled || isProcessing}
+            >
+              <SelectTrigger size="sm" className="w-[130px]">
+                <SelectValue placeholder="Auto Detect" />
+              </SelectTrigger>
+              <SelectContent>
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={startRecording}
+              disabled={isDisabled || isProcessing}
+              size="sm"
+              variant="secondary"
+            >
+              <Mic className="w-4 h-4 mr-2" />
+              {isProcessing ? "Processing..." : "Record"}
+            </Button>
+          </>
         ) : isRecording ? (
-          <Button
-            onClick={stopRecording}
-            size="sm"
-            variant="destructive"
-            className="animate-pulse"
-          >
-            <StopCircle className="w-4 h-4 mr-2" />
-            Stop Recording
-          </Button>
+          <>
+            <div className="w-[130px] h-8 px-3 py-2 text-sm border rounded-md bg-muted/50 text-muted-foreground flex items-center">
+              {SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage)?.name || "Auto Detect"}
+            </div>
+            <Button
+              onClick={stopRecording}
+              size="sm"
+              variant="destructive"
+              className="animate-pulse"
+            >
+              <StopCircle className="w-4 h-4 mr-2" />
+              Stop Recording
+            </Button>
+          </>
         ) : null}
       </div>
 

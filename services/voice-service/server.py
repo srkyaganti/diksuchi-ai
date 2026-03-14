@@ -354,11 +354,20 @@ def stt_health():
 
 
 @app.post("/stt/transcribe")
-async def stt_transcribe(file: UploadFile = File(...), vad_filter: bool = STT_VAD_FILTER):
+async def stt_transcribe(
+    file: UploadFile = File(...), 
+    vad_filter: bool = STT_VAD_FILTER,
+    language: str | None = None
+):
     """
     Transcribe a single audio file.
 
     Returns language detection, full text, and segment-level timestamps.
+    
+    Args:
+        file: Audio file to transcribe
+        vad_filter: Enable voice activity detection filter
+        language: Optional ISO 639-1 language code (e.g., 'en', 'hi') to skip auto-detection
     """
     if stt_model is None:
         raise HTTPException(status_code=503, detail="STT model not loaded")
@@ -367,7 +376,15 @@ async def stt_transcribe(file: UploadFile = File(...), vad_filter: bool = STT_VA
         file_bytes = await file.read()
         audio = load_audio(file_bytes)
 
-        segments, info = stt_model.transcribe(audio, beam_size=5, vad_filter=vad_filter)
+        transcribe_kwargs = {
+            "audio": audio,
+            "beam_size": 5,
+            "vad_filter": vad_filter,
+        }
+        if language:
+            transcribe_kwargs["language"] = language
+
+        segments, info = stt_model.transcribe(**transcribe_kwargs)
 
         segments_out = []
         full_text = []
