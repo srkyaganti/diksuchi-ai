@@ -43,9 +43,13 @@ export async function GET(
       );
     }
 
+    const { searchParams } = new URL(request.url);
+    const onlyCompleted = searchParams.get("onlyCompleted") === "true";
+
     const files = await prisma.file.findMany({
       where: {
         collectionId: id,
+        ...(onlyCompleted && { ragStatus: "completed" }),
       },
       orderBy: {
         uploadedAt: "desc",

@@ -3,8 +3,8 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { FileUploadDialog } from "@/components/data-library/file-upload-dialog";
 import { FileListTable } from "@/components/data-library/file-list-table";
+import { FileUploadDialogWrapper } from "@/components/data-library/file-upload-dialog-wrapper";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -104,7 +104,7 @@ export default async function CollectionPage({
             {files.length} {files.length === 1 ? "file" : "files"}
           </p>
         </div>
-        <FileUploadDialog collectionId={collectionId} />
+        <FileUploadDialogWrapper collectionId={collectionId} />
       </div>
 
       <FileListTable files={files} />
