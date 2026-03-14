@@ -472,13 +472,6 @@ export default function ChatPage() {
 
             <PromptInputFooter>
               <PromptInputTools>
-                <PromptInputActionMenu>
-                  <PromptInputActionMenuTrigger />
-                  <PromptInputActionMenuContent>
-                    <PromptInputActionAddAttachments />
-                  </PromptInputActionMenuContent>
-                </PromptInputActionMenu>
-
                 <VoiceInput
                   onTranscribed={handleVoiceTranscribed}
                   isDisabled={!collectionId || status === "streaming"}
