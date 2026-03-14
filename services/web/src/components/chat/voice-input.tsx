@@ -13,7 +13,6 @@ import { Mic, StopCircle, CheckCircle, XCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 
 const SUPPORTED_LANGUAGES = [
-  { code: "auto", name: "Auto Detect" },
   { code: "en", name: "English" },
   { code: "hi", name: "Hindi" },
   { code: "bn", name: "Bengali" },
@@ -41,7 +40,7 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>("auto");
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -133,9 +132,7 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
     try {
       const formData = new FormData();
       formData.append("audio", wavBlobRef.current);
-      if (selectedLanguage && selectedLanguage !== "auto") {
-        formData.append("languageCode", selectedLanguage);
-      }
+      formData.append("languageCode", selectedLanguage);
 
       const response = await fetch("/api/voice/transcribe", {
         method: "POST",
@@ -198,7 +195,7 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
               disabled={isDisabled || isProcessing}
             >
               <SelectTrigger size="sm" className="w-[130px]">
-                <SelectValue placeholder="Auto Detect" />
+                <SelectValue placeholder="English" />
               </SelectTrigger>
               <SelectContent>
                 {SUPPORTED_LANGUAGES.map((lang) => (
@@ -221,7 +218,7 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
         ) : isRecording ? (
           <>
             <div className="w-[130px] h-8 px-3 py-2 text-sm border rounded-md bg-muted/50 text-muted-foreground flex items-center">
-              {SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage)?.name || "Auto Detect"}
+              {SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage)?.name || "English"}
             </div>
             <Button
               onClick={stopRecording}
