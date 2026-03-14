@@ -1,8 +1,10 @@
 """
-Document Processing API
+RAG Service API
 
-Provides endpoints for submitting PDF processing jobs (Docling conversion)
-and checking job status. Jobs are processed asynchronously via Redis/RQ.
+Provides endpoints for:
+  - Submitting PDF processing jobs (Docling conversion + indexing)
+  - Checking job status
+  - Hybrid retrieval (vector + BM25 + reranking + section expansion)
 """
 
 from dotenv import load_dotenv
@@ -10,10 +12,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
+import sys
 import logging
 import time
-from typing import Optional
+from typing import List, Optional
 from contextlib import asynccontextmanager
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,6 +50,33 @@ logger = logging.getLogger(__name__)
 redis_conn: Redis | None = None
 job_queue: Queue | None = None
 
+# Retrieval components (lazy-initialised on first /api/retrieve call)
+_hybrid_retriever = None
+_reranker = None
+
+
+def _get_retriever():
+    global _hybrid_retriever
+    if _hybrid_retriever is None:
+        from src.retrieval.hybrid_retriever import HybridRetriever
+        from src.storage.vector_store import VectorStore
+        from src.storage.bm25_store import BM25Store
+
+        _hybrid_retriever = HybridRetriever(
+            vector_store=VectorStore(),
+            bm25_store=BM25Store(),
+        )
+    return _hybrid_retriever
+
+
+def _get_reranker():
+    global _reranker
+    if _reranker is None:
+        from src.retrieval.reranker import Reranker
+
+        _reranker = Reranker()
+    return _reranker
+
 
 # --------------------------------------------------
 # Lifespan Event Handler
@@ -56,7 +88,7 @@ async def lifespan(app: FastAPI):
     global redis_conn, job_queue
 
     logger.info("=" * 70)
-    logger.info("Document Processing API Starting...")
+    logger.info("RAG Service API Starting...")
     logger.info(f"Redis: {RAG_REDIS_HOST}:{RAG_REDIS_PORT}")
     logger.info("=" * 70)
 
@@ -73,12 +105,12 @@ async def lifespan(app: FastAPI):
         job_queue = None
 
     logger.info("=" * 70)
-    logger.info("Document Processing API ready")
+    logger.info("RAG Service API ready")
     logger.info("=" * 70)
 
     yield
 
-    logger.info("Document Processing API shutting down...")
+    logger.info("RAG Service API shutting down...")
     if redis_conn:
         redis_conn.close()
 
@@ -88,9 +120,9 @@ async def lifespan(app: FastAPI):
 # --------------------------------------------------
 
 app = FastAPI(
-    title="Document Processing API",
-    description="PDF processing service using Docling",
-    version="2.0.0",
+    title="Diksuchi RAG Service",
+    description="Document processing and hybrid retrieval service",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -130,6 +162,25 @@ class JobStatusResponse(BaseModel):
     error: Optional[str] = None
 
 
+class RetrieveRequest(BaseModel):
+    query: str
+    collectionId: str
+    topK: int = 5
+
+
+class SectionResult(BaseModel):
+    content: str
+    sectionPath: str
+    sectionId: str
+    documentUuid: str
+    score: float
+
+
+class RetrieveResponse(BaseModel):
+    sections: List[SectionResult]
+    timingMs: float
+
+
 # --------------------------------------------------
 # Health Endpoints
 # --------------------------------------------------
@@ -138,12 +189,13 @@ class JobStatusResponse(BaseModel):
 @app.get("/")
 async def root():
     return {
-        "service": "Diksuchi AI Document Processing",
-        "version": "2.0.0",
+        "service": "Diksuchi AI RAG Service",
+        "version": "3.0.0",
         "endpoints": {
             "health": "/health",
             "process": "POST /api/process",
             "job_status": "GET /api/jobs/{job_id}",
+            "retrieve": "POST /api/retrieve",
         },
     }
 
@@ -154,7 +206,7 @@ async def health_check():
 
     return {
         "status": "healthy",
-        "service": "diksuchi-document-processing",
+        "service": "diksuchi-rag-service",
         "redis": redis_status,
     }
 
@@ -166,7 +218,7 @@ async def health_check():
 
 @app.post("/api/process", response_model=ProcessJobResponse)
 async def process_document(job: ProcessJobRequest):
-    """Queue a document processing job (Docling conversion)."""
+    """Queue a document processing job."""
     if not job_queue:
         raise HTTPException(status_code=503, detail="Job queue not available")
 
@@ -228,11 +280,82 @@ async def get_job_status(job_id: str):
 
 
 # --------------------------------------------------
+# Retrieval Endpoint
+# --------------------------------------------------
+
+
+@app.post("/api/retrieve", response_model=RetrieveResponse)
+async def retrieve(req: RetrieveRequest):
+    """
+    Hybrid retrieval: vector + BM25 -> RRF merge -> rerank -> section expansion.
+
+    Returns full parent sections so the LLM has complete context.
+    """
+    t0 = time.time()
+
+    try:
+        retriever = _get_retriever()
+        reranker = _get_reranker()
+    except Exception as exc:
+        logger.error(f"Failed to initialise retrieval components: {exc}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Retrieval service not ready: {exc}",
+        )
+
+    from src.retrieval.section_expander import expand_to_sections
+
+    # Step 1: Hybrid search (vector + BM25 with RRF)
+    merged_results = retriever.search(
+        query=req.query,
+        collection_id=req.collectionId,
+        k=20,
+    )
+
+    if not merged_results:
+        elapsed_ms = (time.time() - t0) * 1000
+        return RetrieveResponse(sections=[], timingMs=round(elapsed_ms, 1))
+
+    # Step 2: Rerank top candidates
+    reranked = reranker.rerank(
+        query=req.query,
+        results=merged_results,
+        top_k=req.topK * 2,
+    )
+
+    # Step 3: Expand to full sections
+    sections = expand_to_sections(reranked, top_k=req.topK)
+
+    elapsed_ms = (time.time() - t0) * 1000
+
+    logger.info(
+        f"Retrieve: query='{req.query[:60]}' "
+        f"collection={req.collectionId} "
+        f"sections={len(sections)} "
+        f"time={elapsed_ms:.0f}ms"
+    )
+
+    return RetrieveResponse(
+        sections=[
+            SectionResult(
+                content=s["content"],
+                sectionPath=s["section_path"],
+                sectionId=s["section_id"],
+                documentUuid=s["document_uuid"],
+                score=s["score"],
+            )
+            for s in sections
+        ],
+        timingMs=round(elapsed_ms, 1),
+    )
+
+
+# --------------------------------------------------
 # Main Entry Point
 # --------------------------------------------------
 
 if __name__ == "__main__":
     import uvicorn
 
-    print(f"Starting Document Processing service on port {RAG_PORT}...")
+    print(f"Starting RAG Service on port {RAG_PORT}...")
     uvicorn.run(app, host="0.0.0.0", port=RAG_PORT, log_level="info")

@@ -1,17 +1,14 @@
 """
 Document Store
 
-Manages the on-disk storage layout for Docling-processed documents:
+Manages the on-disk storage layout for processed documents:
 
     storage/{uuid}/
-        document.json      # Docling JSON (immutable after write)
+        document.md        # Markdown content from Docling
+        section_map.json   # Hierarchical section map for retrieval
         images/
             picture_1.png
             ...
-
-Read and write operations only. No transformation of the Docling JSON is
-performed -- it is stored exactly as produced, with one optional addition:
-the document_id field at the top level.
 """
 
 import json
@@ -29,8 +26,12 @@ def _doc_dir(uuid: str) -> Path:
     return Path(STORAGE_BASE) / uuid
 
 
-def _json_path(uuid: str) -> Path:
-    return _doc_dir(uuid) / "document.json"
+def _markdown_path(uuid: str) -> Path:
+    return _doc_dir(uuid) / "document.md"
+
+
+def _section_map_path(uuid: str) -> Path:
+    return _doc_dir(uuid) / "section_map.json"
 
 
 def _images_dir(uuid: str) -> Path:
@@ -39,18 +40,20 @@ def _images_dir(uuid: str) -> Path:
 
 def save_document(
     uuid: str,
-    docling_json: dict,
+    markdown: str,
     images: Dict[str, bytes],
+    section_map: Optional[dict] = None,
     document_id: Optional[str] = None,
 ) -> Path:
     """
-    Persist a Docling conversion result to disk.
+    Persist a processed document to disk.
 
     Args:
-        uuid: Unique identifier for the document (used as directory name).
-        docling_json: Raw dict from DoclingDocument.export_to_dict().
-        images: Mapping of filename -> PNG bytes for extracted images.
-        document_id: Optional ID injected at the JSON top level for traceability.
+        uuid: Unique identifier (used as directory name).
+        markdown: Markdown text from Docling.
+        images: Mapping of filename -> PNG bytes.
+        section_map: Hierarchical section map (from document_mapper).
+        document_id: Optional ID stored in section_map for traceability.
 
     Returns:
         Path to the created document directory.
@@ -59,13 +62,17 @@ def save_document(
     images_dir = _images_dir(uuid)
     images_dir.mkdir(parents=True, exist_ok=True)
 
-    if document_id is not None:
-        docling_json["document_id"] = document_id
+    md_path = _markdown_path(uuid)
+    md_path.write_text(markdown, encoding="utf-8")
+    logger.info(f"Saved document.md for {uuid} ({md_path.stat().st_size} bytes)")
 
-    json_path = _json_path(uuid)
-    with json_path.open("w", encoding="utf-8") as fp:
-        json.dump(docling_json, fp, ensure_ascii=False)
-    logger.info(f"Saved document.json for {uuid} ({json_path.stat().st_size} bytes)")
+    if section_map is not None:
+        if document_id is not None:
+            section_map["document_id"] = document_id
+        sm_path = _section_map_path(uuid)
+        with sm_path.open("w", encoding="utf-8") as fp:
+            json.dump(section_map, fp, ensure_ascii=False, indent=2)
+        logger.info(f"Saved section_map.json for {uuid}")
 
     for filename, data in images.items():
         img_path = images_dir / filename
@@ -77,18 +84,20 @@ def save_document(
     return doc_dir
 
 
-def get_document(uuid: str) -> dict:
-    """
-    Read and return the stored Docling JSON for a document.
+def get_markdown(uuid: str) -> str:
+    """Read and return the stored markdown for a document."""
+    md_path = _markdown_path(uuid)
+    if not md_path.exists():
+        raise FileNotFoundError(f"No document.md for uuid {uuid}")
+    return md_path.read_text(encoding="utf-8")
 
-    Raises:
-        FileNotFoundError: If document.json does not exist.
-    """
-    json_path = _json_path(uuid)
-    if not json_path.exists():
-        raise FileNotFoundError(f"No document.json for uuid {uuid}")
 
-    with json_path.open("r", encoding="utf-8") as fp:
+def get_section_map(uuid: str) -> dict:
+    """Read and return the stored section map for a document."""
+    sm_path = _section_map_path(uuid)
+    if not sm_path.exists():
+        raise FileNotFoundError(f"No section_map.json for uuid {uuid}")
+    with sm_path.open("r", encoding="utf-8") as fp:
         return json.load(fp)
 
 
@@ -112,5 +121,5 @@ def list_images(uuid: str) -> List[str]:
 
 
 def document_exists(uuid: str) -> bool:
-    """Check whether document.json exists for the given UUID."""
-    return _json_path(uuid).exists()
+    """Check whether document.md exists for the given UUID."""
+    return _markdown_path(uuid).exists()

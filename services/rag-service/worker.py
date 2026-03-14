@@ -2,8 +2,8 @@
 Document Processing Worker
 
 Processes documents asynchronously via Redis (RQ) queue.
-Converts PDFs to structured JSON using Docling and stores the result
-alongside extracted images.
+Full pipeline: Docling PDF -> Markdown -> Section Map -> Chunks ->
+               ChromaDB Embeddings + BM25 Index.
 """
 
 from dotenv import load_dotenv
@@ -24,7 +24,11 @@ from redis import Redis
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.ingestion.docling_converter import convert_pdf
+from src.ingestion.document_mapper import build_section_map
+from src.ingestion.chunker import chunk_document
 from src.storage.document_store import save_document
+from src.storage.vector_store import VectorStore
+from src.storage.bm25_store import BM25Store
 
 # --------------------------------------------------
 # Configuration
@@ -43,6 +47,27 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# --------------------------------------------------
+# Singletons (initialised lazily on first job)
+# --------------------------------------------------
+
+_vector_store: VectorStore | None = None
+_bm25_store: BM25Store | None = None
+
+
+def _get_vector_store() -> VectorStore:
+    global _vector_store
+    if _vector_store is None:
+        _vector_store = VectorStore()
+    return _vector_store
+
+
+def _get_bm25_store() -> BM25Store:
+    global _bm25_store
+    if _bm25_store is None:
+        _bm25_store = BM25Store()
+    return _bm25_store
 
 
 # --------------------------------------------------
@@ -101,22 +126,12 @@ def update_job_progress(progress: int, message: str = ""):
 
 def process_document_job(job_data: Dict[str, Any]):
     """
-    Main worker function to process a document via Docling.
-
-    Converts the PDF to structured JSON, extracts images, and stores
-    both to disk under storage/{uuid}/.
-
-    Args:
-        job_data: Dictionary containing:
-            - fileId: Database ID of the file
-            - collectionId: Collection the file belongs to
-            - fileName: Original filename
-            - filePath: Absolute path to the uploaded file
-            - mimeType: MIME type of the file
-            - uuid: Unique storage identifier for the file
-
-    Returns:
-        dict: Processing result with status and metadata
+    Full ingestion pipeline:
+      1. Docling conversion  (PDF -> Markdown + images)
+      2. Build section map   (markdown headers -> hierarchy)
+      3. Chunk by sections   (section-aware splitting)
+      4. Embed & store       (ChromaDB via Ollama)
+      5. Build BM25 index    (keyword search)
     """
     file_id = job_data["fileId"]
     collection_id = job_data["collectionId"]
@@ -127,47 +142,73 @@ def process_document_job(job_data: Dict[str, Any]):
 
     logger.info("=" * 60)
     logger.info(f"Processing document: {file_name}")
-    logger.info(f"File ID: {file_id}")
-    logger.info(f"UUID: {file_uuid}")
-    logger.info(f"Collection ID: {collection_id}")
-    logger.info(f"File Path: {file_path}")
-    logger.info(f"MIME Type: {mime_type}")
+    logger.info(f"  File ID: {file_id}  UUID: {file_uuid}")
+    logger.info(f"  Collection: {collection_id}")
     logger.info("=" * 60)
 
     job_start_time = time.time()
 
     try:
         asyncio.run(update_file_status(file_id, "processing"))
-        update_job_progress(10, "Starting document processing")
+        update_job_progress(5, "Starting document processing")
 
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        if mime_type == "application/pdf" or file_path.endswith(".pdf"):
-            update_job_progress(20, "Running Docling conversion")
-
-            result = convert_pdf(file_path)
-            update_job_progress(70, "Docling conversion complete")
-
-            update_job_progress(80, "Saving document and images")
-            save_document(
-                uuid=file_uuid,
-                docling_json=result.document_json,
-                images=result.images,
-                document_id=file_uuid,
-            )
-            update_job_progress(95, "Document stored")
-
-        else:
+        if not (mime_type == "application/pdf" or file_path.endswith(".pdf")):
             raise ValueError(f"Unsupported file type: {mime_type}")
 
+        # --- Step 1: Docling conversion ---
+        update_job_progress(10, "Running Docling PDF conversion")
+        result = convert_pdf(file_path)
+        update_job_progress(40, "Docling conversion complete")
+
+        # --- Step 2: Build section map ---
+        update_job_progress(45, "Building section map")
+        section_map = build_section_map(result.markdown)
+
+        # --- Step 3: Store markdown + section map + images ---
+        update_job_progress(50, "Saving document to storage")
+        save_document(
+            uuid=file_uuid,
+            markdown=result.markdown,
+            images=result.images,
+            section_map=section_map,
+            document_id=file_uuid,
+        )
+
+        # --- Step 4: Chunk by sections ---
+        update_job_progress(60, "Chunking document by sections")
+        chunks = chunk_document(
+            markdown=result.markdown,
+            section_map=section_map,
+            document_uuid=file_uuid,
+            collection_id=collection_id,
+        )
+
+        if not chunks:
+            logger.warning(f"No chunks produced for {file_name}")
+
+        # --- Step 5: Embed chunks -> ChromaDB ---
+        update_job_progress(70, "Embedding chunks via Ollama")
+        vector_store = _get_vector_store()
+        vector_store.add_chunks(collection_id, chunks)
+
+        # --- Step 6: Build BM25 index ---
+        update_job_progress(85, "Building BM25 keyword index")
+        bm25_store = _get_bm25_store()
+        bm25_store.build_index(collection_id, chunks)
+
+        # --- Done ---
         update_job_progress(100, "Document processing completed")
         processed_at = datetime.now(timezone.utc).isoformat()
         asyncio.run(update_file_status(file_id, "completed", processed_at=processed_at))
 
         job_duration = time.time() - job_start_time
-        logger.info(f"Processing completed in {job_duration:.2f} seconds")
-        logger.info(f"Successfully processed document: {file_name}")
+        logger.info(
+            f"Processing completed in {job_duration:.2f}s  "
+            f"chunks={len(chunks)}  file={file_name}"
+        )
 
         return {
             "status": "completed",
@@ -175,6 +216,7 @@ def process_document_job(job_data: Dict[str, Any]):
             "uuid": file_uuid,
             "fileName": file_name,
             "processedAt": processed_at,
+            "chunks": len(chunks),
             "message": "Document processed successfully",
         }
 

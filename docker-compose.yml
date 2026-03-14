@@ -1,24 +1,17 @@
 # ============================================================
-# DIKSUCHI-AI PLATFORM - DOCKER COMPOSE CONFIGURATION
+# DIKSUCHI-AI PLATFORM - DOCKER COMPOSE (INFRA ONLY)
 # ============================================================
-# 
-# Usage:
-#   docker-compose up -d              # Start all services
-#   docker-compose up -d rag-api      # Start specific services
-#   docker-compose logs -f            # View logs
-#   docker-compose down               # Stop all services
 #
-# Prerequisites:
-#   - NVIDIA Docker runtime for GPU services
-#   - .env file with required secrets
-#   - Sufficient disk space for model caching
+# Only infrastructure services run in Docker.
+# Application services (web, rag, voice) run natively for
+# fast iteration -- see scripts/dev.sh.
+#
+# Usage:
+#   docker-compose up -d          # Start infra
+#   docker-compose down           # Stop infra
 # ============================================================
 
 services:
-  # ============================================================
-  # INFRASTRUCTURE SERVICES
-  # ============================================================
-
   postgres:
     image: postgres:16-alpine
     container_name: diksuchi-postgres
@@ -37,8 +30,6 @@ services:
       retries: 5
       start_period: 10s
     restart: unless-stopped
-    networks:
-      - diksuchi-network
 
   redis:
     image: redis:8-alpine
@@ -54,168 +45,9 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
-    networks:
-      - diksuchi-network
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: diksuchi-ollama
-    volumes:
-      - ./models/ollama:/root/.ollama
-    ports:
-      - "11434:11434"
-    healthcheck:
-      test: ["CMD-SHELL", "ollama list || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    restart: unless-stopped
-    networks:
-      - diksuchi-network
-
-  # ============================================================
-  # APPLICATION SERVICES
-  # ============================================================
-
-  web:
-    build:
-      context: ./services/web
-      dockerfile: Dockerfile
-    container_name: diksuchi-web
-    environment:
-      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-password}@postgres:5432/diksuchi
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
-      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
-      - PYTHON_WORKER_URL=http://rag-api:5001
-      - VOICE_SERVICE_URL=http://voice-service:8000
-      - LLM_SERVICE_BASE_URL=${LLM_SERVICE_BASE_URL:-http://ollama:11434/v1}
-    ports:
-      - "3000:3000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - uploads_data:/app/uploads
-      - storage_data:/app/storage:ro
-    restart: unless-stopped
-    networks:
-      - diksuchi-network
-
-  rag-api:
-    build:
-      context: ./services/rag-service
-      dockerfile: Dockerfile
-    container_name: diksuchi-rag-api
-    environment:
-      - RAG_REDIS_HOST=redis
-      - RAG_REDIS_PORT=6379
-      - RAG_WEB_CALLBACK_URL=http://web:3000
-      - RAG_WEB_API_SECRET=${INTERNAL_API_SECRET}
-    ports:
-      - "5001:5001"
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - storage_data:/app/storage
-      - uploads_data:/app/uploads:ro
-    restart: unless-stopped
-    networks:
-      - diksuchi-network
-
-  rag-worker:
-    build:
-      context: ./services/rag-service
-      dockerfile: Dockerfile.worker
-    container_name: diksuchi-rag-worker
-    environment:
-      - RAG_REDIS_HOST=redis
-      - RAG_REDIS_PORT=6379
-      - RAG_WEB_CALLBACK_URL=http://web:3000
-      - RAG_WEB_API_SECRET=${INTERNAL_API_SECRET}
-      - DOCLING_STORAGE_PATH=/app/storage
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - storage_data:/app/storage
-      - uploads_data:/app/uploads:ro
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    restart: unless-stopped
-    networks:
-      - diksuchi-network
-
-  voice-service:
-    build:
-      context: ./services/voice-service
-      dockerfile: Dockerfile
-    container_name: diksuchi-voice
-    environment:
-      - STT_MODEL_NAME=${STT_MODEL_NAME:-large-v3}
-      - STT_DEVICE=${STT_DEVICE:-cuda}
-      - STT_COMPUTE_TYPE=${STT_COMPUTE_TYPE:-float16}
-      - TTS_MODEL_NAME=${TTS_MODEL_NAME:-ai4bharat/indic-parler-tts}
-      - TTS_DEVICE=${TTS_DEVICE:-auto}
-      - VOICE_SERVICE_PORT=8000
-      - HF_TOKEN=${HF_TOKEN}
-    ports:
-      - "8001:8000"
-    volumes:
-      - voice_models:/root/.cache/huggingface/hub
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-    restart: unless-stopped
-    networks:
-      - diksuchi-network
-
-# ============================================================
-# VOLUMES
-# ============================================================
 
 volumes:
   postgres_data:
     driver: local
   redis_data:
     driver: local
-  storage_data:
-    driver: local
-  uploads_data:
-    driver: local
-  voice_models:
-    driver: local
-
-# ============================================================
-# NETWORKS
-# ============================================================
-
-networks:
-  diksuchi-network:
-    driver: bridge

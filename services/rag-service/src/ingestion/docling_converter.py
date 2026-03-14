@@ -1,8 +1,9 @@
 """
 Docling PDF Converter
 
-Thin wrapper around the Docling library. Converts a PDF file into a structured
-JSON dictionary and extracts embedded images as PNG bytes.
+Converts a PDF file into Markdown text and extracts embedded images as PNG bytes.
+Uses Docling's native export_to_markdown() for high-quality structural output
+that preserves headings, tables, and list formatting.
 
 This module has no side-effects: it does not write to disk or touch any storage.
 All file I/O is handled by document_store.py.
@@ -25,16 +26,29 @@ logger = logging.getLogger(__name__)
 
 IMAGE_RESOLUTION_SCALE = 2.0
 
+
 @dataclass
 class DoclingResult:
     """Container for Docling conversion output."""
 
-    document_json: dict
+    markdown: str
     images: Dict[str, bytes] = field(default_factory=dict)
 
 
+def _detect_device() -> AcceleratorDevice:
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return AcceleratorDevice.CUDA
+    except ImportError:
+        pass
+    return AcceleratorDevice.AUTO
+
+
 def _build_converter() -> DocumentConverter:
-    accelerator_options = AcceleratorOptions(device=AcceleratorDevice.CUDA)
+    device = _detect_device()
+    logger.info(f"Docling accelerator device: {device}")
+    accelerator_options = AcceleratorOptions(device=device)
 
     pipeline_options = ThreadedPdfPipelineOptions(
         accelerator_options=accelerator_options,
@@ -70,13 +84,13 @@ def _get_converter() -> DocumentConverter:
 
 def convert_pdf(pdf_path: str) -> DoclingResult:
     """
-    Convert a PDF to a Docling JSON dict and extract images.
+    Convert a PDF to Markdown text and extract images.
 
     Args:
         pdf_path: Absolute path to the PDF file on disk.
 
     Returns:
-        DoclingResult with the raw JSON dict and a mapping of
+        DoclingResult with markdown text and a mapping of
         image filenames (e.g. "picture_1.png") to PNG bytes.
 
     Raises:
@@ -92,7 +106,7 @@ def convert_pdf(pdf_path: str) -> DoclingResult:
     conv_result = converter.convert(pdf_path)
     logger.info(f"Docling conversion complete: {path.name}")
 
-    document_json = conv_result.document.export_to_dict()
+    markdown = conv_result.document.export_to_markdown()
 
     images: Dict[str, bytes] = {}
     picture_counter = 0
@@ -122,4 +136,4 @@ def convert_pdf(pdf_path: str) -> DoclingResult:
         f"from {path.name}"
     )
 
-    return DoclingResult(document_json=document_json, images=images)
+    return DoclingResult(markdown=markdown, images=images)

@@ -1,10 +1,10 @@
 """
 Tests for the document store module.
 
-These tests verify the storage layer independently of Docling conversion,
-using synthetic data. They cover:
-  - Directory creation and file writing
-  - JSON round-trip fidelity
+Verifies the storage layer independently of Docling conversion,
+using synthetic data. Covers:
+  - Directory creation and file writing (markdown + section map)
+  - Markdown round-trip fidelity
   - Image write and retrieval
   - Path traversal rejection
   - Edge cases (missing documents, empty image sets)
@@ -18,27 +18,51 @@ from pathlib import Path
 
 os.environ["DOCLING_STORAGE_PATH"] = tempfile.mkdtemp(prefix="docstore_test_")
 
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.storage.document_store import (
     document_exists,
-    get_document,
+    get_markdown,
+    get_section_map,
     get_image_path,
     list_images,
     save_document,
 )
 
 
-SAMPLE_JSON = {
-    "schema_name": "DoclingDocument",
-    "version": "1.0.0",
-    "name": "test-manual",
-    "pages": {"1": {"page_no": 1, "size": {"width": 612, "height": 792}}},
-    "texts": [
-        {"self_ref": "#/texts/0", "text": "Chapter 1: Safety", "label": "section_header"},
-        {"self_ref": "#/texts/1", "text": "Do not operate without guards.", "label": "paragraph"},
-    ],
-    "pictures": [
-        {"self_ref": "#/pictures/0", "caption": "Hydraulic pump assembly"},
-    ],
+SAMPLE_MARKDOWN = """# Chapter 1: Safety
+
+Do not operate without guards.
+
+## 1.1 Warnings
+
+Always wear protective equipment.
+"""
+
+SAMPLE_SECTION_MAP = {
+    "sections": [
+        {
+            "id": "section-1",
+            "title": "Chapter 1: Safety",
+            "level": 1,
+            "path": "Chapter 1: Safety",
+            "start_line": 0,
+            "end_line": 6,
+            "children": [
+                {
+                    "id": "section-2",
+                    "title": "1.1 Warnings",
+                    "level": 2,
+                    "path": "Chapter 1: Safety > 1.1 Warnings",
+                    "start_line": 4,
+                    "end_line": 6,
+                    "children": [],
+                }
+            ],
+        }
+    ]
 }
 
 SAMPLE_IMAGE = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
@@ -51,28 +75,36 @@ class TestSaveAndReadDocument(unittest.TestCase):
     def test_save_creates_structure(self):
         doc_dir = save_document(
             self.uuid,
-            docling_json=SAMPLE_JSON.copy(),
+            markdown=SAMPLE_MARKDOWN,
             images={"picture_1.png": SAMPLE_IMAGE},
+            section_map=SAMPLE_SECTION_MAP,
             document_id=self.uuid,
         )
         self.assertTrue(doc_dir.exists())
-        self.assertTrue((doc_dir / "document.json").exists())
+        self.assertTrue((doc_dir / "document.md").exists())
+        self.assertTrue((doc_dir / "section_map.json").exists())
         self.assertTrue((doc_dir / "images" / "picture_1.png").exists())
 
-    def test_json_round_trip(self):
-        original = SAMPLE_JSON.copy()
-        save_document(self.uuid, original, images={})
-        loaded = get_document(self.uuid)
-        self.assertEqual(loaded["schema_name"], "DoclingDocument")
-        self.assertEqual(loaded["texts"], SAMPLE_JSON["texts"])
+    def test_markdown_round_trip(self):
+        save_document(self.uuid, markdown=SAMPLE_MARKDOWN, images={})
+        loaded = get_markdown(self.uuid)
+        self.assertEqual(loaded, SAMPLE_MARKDOWN)
 
-    def test_document_id_injected(self):
-        save_document(self.uuid, SAMPLE_JSON.copy(), images={}, document_id="my-id")
-        loaded = get_document(self.uuid)
+    def test_section_map_round_trip(self):
+        save_document(
+            self.uuid,
+            markdown=SAMPLE_MARKDOWN,
+            images={},
+            section_map=SAMPLE_SECTION_MAP,
+            document_id="my-id",
+        )
+        loaded = get_section_map(self.uuid)
         self.assertEqual(loaded["document_id"], "my-id")
+        self.assertEqual(len(loaded["sections"]), 1)
+        self.assertEqual(loaded["sections"][0]["title"], "Chapter 1: Safety")
 
     def test_image_content_matches(self):
-        save_document(self.uuid, SAMPLE_JSON.copy(), images={"img.png": SAMPLE_IMAGE})
+        save_document(self.uuid, markdown="# Test", images={"img.png": SAMPLE_IMAGE})
         path = get_image_path(self.uuid, "img.png")
         self.assertIsNotNone(path)
         self.assertEqual(path.read_bytes(), SAMPLE_IMAGE)
@@ -81,7 +113,7 @@ class TestSaveAndReadDocument(unittest.TestCase):
 class TestDocumentExists(unittest.TestCase):
     def test_exists_after_save(self):
         uuid = "exists-test"
-        save_document(uuid, {"test": True}, images={})
+        save_document(uuid, markdown="# Exists", images={})
         self.assertTrue(document_exists(uuid))
 
     def test_not_exists(self):
@@ -96,13 +128,13 @@ class TestListImages(unittest.TestCase):
             "picture_2.png": SAMPLE_IMAGE,
             "table_1.png": SAMPLE_IMAGE,
         }
-        save_document(uuid, {"test": True}, images=images)
+        save_document(uuid, markdown="# Images", images=images)
         result = list_images(uuid)
         self.assertEqual(result, ["picture_1.png", "picture_2.png", "table_1.png"])
 
     def test_list_empty(self):
         uuid = "no-images-test"
-        save_document(uuid, {"test": True}, images={})
+        save_document(uuid, markdown="# No images", images={})
         result = list_images(uuid)
         self.assertEqual(result, [])
 
@@ -114,7 +146,7 @@ class TestListImages(unittest.TestCase):
 class TestGetImagePath(unittest.TestCase):
     def setUp(self):
         self.uuid = "imgpath-test"
-        save_document(self.uuid, {"test": True}, images={"valid.png": SAMPLE_IMAGE})
+        save_document(self.uuid, markdown="# Test", images={"valid.png": SAMPLE_IMAGE})
 
     def test_valid_image(self):
         path = get_image_path(self.uuid, "valid.png")
@@ -130,10 +162,10 @@ class TestGetImagePath(unittest.TestCase):
         self.assertIsNone(get_image_path(self.uuid, "sub/dir/file.png"))
 
 
-class TestGetDocumentErrors(unittest.TestCase):
+class TestGetMarkdownErrors(unittest.TestCase):
     def test_missing_raises(self):
         with self.assertRaises(FileNotFoundError):
-            get_document("nonexistent-uuid-999")
+            get_markdown("nonexistent-uuid-999")
 
 
 if __name__ == "__main__":
