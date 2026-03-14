@@ -1,8 +1,9 @@
 /**
  * Document Loader
  *
- * Reads Docling JSON files from the storage directory and prepares
- * document content for injection into the LLM context window.
+ * Reads processed document files from the storage directory.
+ * Used for document viewing / preview in the UI. Chat retrieval
+ * is now handled by the RAG service's /api/retrieve endpoint.
  */
 
 import { readFile } from "fs/promises";
@@ -10,7 +11,8 @@ import { existsSync } from "fs";
 import { join } from "path";
 import prisma from "@/lib/prisma";
 
-const STORAGE_PATH = process.env.DOCLING_STORAGE_PATH || join(process.cwd(), "storage");
+const STORAGE_PATH =
+  process.env.DOCLING_STORAGE_PATH || join(process.cwd(), "storage");
 
 export interface DocumentContent {
   fileId: string;
@@ -28,7 +30,7 @@ export interface ImageRef {
 
 /**
  * Load all processed documents for a collection.
- * Reads Docling JSON from storage/{uuid}/document.json for each file.
+ * Reads document.md (or legacy document.json) from storage/{uuid}/.
  */
 export async function loadCollectionDocuments(
   collectionId: string,
@@ -48,18 +50,27 @@ export async function loadCollectionDocuments(
   const documents: DocumentContent[] = [];
 
   for (const file of files) {
+    const mdPath = join(STORAGE_PATH, file.uuid, "document.md");
     const jsonPath = join(STORAGE_PATH, file.uuid, "document.json");
 
-    if (!existsSync(jsonPath)) {
-      console.warn(`document.json not found for file ${file.name} (${file.uuid})`);
-      continue;
-    }
-
     try {
-      const raw = await readFile(jsonPath, "utf-8");
-      const doclingJson = JSON.parse(raw);
-      const textContent = extractTextContent(doclingJson);
-      const imageRefs = extractImageReferences(doclingJson);
+      let textContent: string;
+      let imageRefs: ImageRef[] = [];
+
+      if (existsSync(mdPath)) {
+        textContent = await readFile(mdPath, "utf-8");
+        imageRefs = extractImageRefsFromMarkdown(textContent);
+      } else if (existsSync(jsonPath)) {
+        const raw = await readFile(jsonPath, "utf-8");
+        const doclingJson = JSON.parse(raw);
+        textContent = extractTextContent(doclingJson);
+        imageRefs = extractImageReferences(doclingJson);
+      } else {
+        console.warn(
+          `No document.md or document.json for file ${file.name} (${file.uuid})`,
+        );
+        continue;
+      }
 
       documents.push({
         fileId: file.id,
@@ -69,7 +80,10 @@ export async function loadCollectionDocuments(
         imageRefs,
       });
     } catch (err) {
-      console.error(`Failed to load document for ${file.name} (${file.uuid}):`, err);
+      console.error(
+        `Failed to load document for ${file.name} (${file.uuid}):`,
+        err,
+      );
     }
   }
 
@@ -77,12 +91,25 @@ export async function loadCollectionDocuments(
 }
 
 /**
- * Walk the Docling JSON structure and extract a text representation.
- *
- * Docling v2 JSON stores content in body.children[], each with a $ref
- * pointing into texts[], tables[], pictures[], etc. This function
- * traverses these references in document order.
+ * Extract image references from markdown content (![alt](path) patterns).
  */
+function extractImageRefsFromMarkdown(markdown: string): ImageRef[] {
+  const refs: ImageRef[] = [];
+  const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  let match;
+  let counter = 0;
+  while ((match = imgRegex.exec(markdown)) !== null) {
+    counter++;
+    refs.push({
+      filename: match[2].split("/").pop() || `image_${counter}.png`,
+      caption: match[1] || undefined,
+    });
+  }
+  return refs;
+}
+
+// --- Legacy JSON support below ---
+
 function extractTextContent(doc: any): string {
   const parts: string[] = [];
 
@@ -123,14 +150,19 @@ function extractTextContent(doc: any): string {
   return parts.join("\n\n");
 }
 
-/**
- * Render a Docling table structure into a markdown table string.
- */
 function renderTable(tableData: any): string {
   if (!tableData.table_cells || tableData.table_cells.length === 0) return "";
 
-  const maxRow = Math.max(...tableData.table_cells.map((c: any) => c.end_row_offset_idx ?? c.row ?? 0));
-  const maxCol = Math.max(...tableData.table_cells.map((c: any) => c.end_col_offset_idx ?? c.col ?? 0));
+  const maxRow = Math.max(
+    ...tableData.table_cells.map(
+      (c: any) => c.end_row_offset_idx ?? c.row ?? 0,
+    ),
+  );
+  const maxCol = Math.max(
+    ...tableData.table_cells.map(
+      (c: any) => c.end_col_offset_idx ?? c.col ?? 0,
+    ),
+  );
 
   if (maxRow === 0 || maxCol === 0) return "";
 
@@ -155,9 +187,6 @@ function renderTable(tableData: any): string {
   return lines.join("\n");
 }
 
-/**
- * Extract image references from Docling JSON for LLM context.
- */
 function extractImageReferences(doc: any): ImageRef[] {
   const refs: ImageRef[] = [];
 

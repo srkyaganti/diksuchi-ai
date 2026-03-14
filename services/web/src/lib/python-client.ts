@@ -1,8 +1,8 @@
 /**
- * Document Processing Service Client
+ * RAG Service Client
  *
- * Provides typed interfaces for communicating with the Python document
- * processing service (Docling conversion and job management).
+ * Typed interfaces for communicating with the Python RAG service
+ * (document processing, job management, and hybrid retrieval).
  */
 
 const PYTHON_WORKER_URL = process.env.PYTHON_WORKER_URL || "http://localhost:5001";
@@ -29,7 +29,26 @@ export interface JobStatusResponse {
   error?: string;
 }
 
-export class DocumentProcessingClient {
+export interface RetrieveRequest {
+  query: string;
+  collectionId: string;
+  topK?: number;
+}
+
+export interface SectionResult {
+  content: string;
+  sectionPath: string;
+  sectionId: string;
+  documentUuid: string;
+  score: number;
+}
+
+export interface RetrieveResponse {
+  sections: SectionResult[];
+  timingMs: number;
+}
+
+export class RAGServiceClient {
   private workerUrl: string;
   private timeout: number;
 
@@ -96,6 +115,36 @@ export class DocumentProcessingClient {
     }
   }
 
+  async retrieveDocuments(req: RetrieveRequest): Promise<RetrieveResponse> {
+    const url = `${this.workerUrl}/api/retrieve`;
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: "Unknown error" }));
+        throw new Error(
+          `Retrieval error (${response.status}): ${error.detail || error.message || "Unknown error"}`
+        );
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        throw new Error("Retrieval request timed out");
+      }
+      if (error.code === "ECONNREFUSED") {
+        throw new Error("RAG service is not reachable. Is the service running?");
+      }
+      throw error;
+    }
+  }
+
   async healthCheck(): Promise<boolean> {
     const url = `${this.workerUrl}/health`;
 
@@ -112,12 +161,16 @@ export class DocumentProcessingClient {
   }
 }
 
-export const processingClient = new DocumentProcessingClient();
+export const ragClient = new RAGServiceClient();
 
 export async function submitDocumentProcessing(job: ProcessJobRequest): Promise<ProcessJobResponse> {
-  return processingClient.submitProcessingJob(job);
+  return ragClient.submitProcessingJob(job);
+}
+
+export async function retrieveDocuments(req: RetrieveRequest): Promise<RetrieveResponse> {
+  return ragClient.retrieveDocuments(req);
 }
 
 export async function checkProcessingServiceHealth(): Promise<boolean> {
-  return processingClient.healthCheck();
+  return ragClient.healthCheck();
 }

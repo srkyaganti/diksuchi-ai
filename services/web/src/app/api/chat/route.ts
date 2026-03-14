@@ -3,8 +3,8 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { streamText, convertToModelMessages } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { loadCollectionDocuments } from "@/lib/document-loader";
-import type { DocumentContent } from "@/lib/document-loader";
+import { retrieveDocuments } from "@/lib/python-client";
+import type { SectionResult } from "@/lib/python-client";
 import type { UIMessage } from "ai";
 import { nanoid } from "nanoid";
 
@@ -18,40 +18,28 @@ interface ChatRequestBody {
 }
 
 /**
- * Build system prompt from full document content (long-context approach).
- * Includes resolvable image URLs so the LLM can produce valid markdown images.
+ * Build system prompt from retrieved sections (hybrid RAG approach).
+ * Each section is the full parent context around the matched chunks,
+ * giving the LLM complete context to avoid hallucination.
  */
-function buildSystemPrompt(documents: DocumentContent[]): string {
-  if (documents.length === 0) {
-    return `You are a helpful technical assistant. No documents have been processed for this collection yet.`;
+function buildSystemPrompt(sections: SectionResult[]): string {
+  if (sections.length === 0) {
+    return `You are a helpful technical assistant. No relevant sections were found for this query. If you cannot answer from the provided context, say so clearly.`;
   }
 
-  const documentSections = documents.map((doc, i) => {
-    let section = `=== DOCUMENT ${i + 1}: ${doc.fileName} ===\n\n${doc.textContent}`;
-
-    if (doc.imageRefs.length > 0) {
-      const imageList = doc.imageRefs
-        .map((ref) => {
-          const url = `/api/files/${doc.fileId}/images/${ref.filename}`;
-          let entry = `- ${ref.filename} (URL: ${url})`;
-          if (ref.caption) entry += ` -- ${ref.caption}`;
-          if (ref.page) entry += ` (page ${ref.page})`;
-          return entry;
-        })
-        .join("\n");
-      section += `\n\nAvailable images in this document:\n${imageList}`;
-    }
-
-    return section;
+  const sectionBlocks = sections.map((sec, i) => {
+    return `=== SECTION ${i + 1}: ${sec.sectionPath} ===\n\n${sec.content}`;
   });
 
-  return `You are a technical assistant with access to the following documents from the knowledge base. These are safety-critical technical manuals -- pay special attention to any warnings, cautions, or safety information.
+  return `You are a technical assistant for defence-sector S1000D documentation. You have access to the following sections retrieved from the knowledge base. These are safety-critical technical manuals -- pay special attention to any warnings, cautions, or safety information.
 
-${documentSections.join("\n\n")}
+${sectionBlocks.join("\n\n")}
 
-Answer the user's question accurately based on the documents above. If the information is not sufficient, say so.
-
-When referencing an image, use markdown image syntax with the full URL path provided above. For example: ![Description](/api/files/FILEID/images/picture_1.png)`;
+INSTRUCTIONS:
+- Answer the user's question accurately based ONLY on the sections above.
+- If the information is not sufficient to answer, say so clearly -- do NOT guess or fabricate information.
+- When citing information, reference the section path (e.g. "According to [Section Path]...").
+- Preserve any warnings, cautions, or safety notes from the source material.`;
 }
 
 function extractTextContent(parts: any[]): string {
@@ -159,11 +147,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Load full document content from Docling JSON (long-context approach)
-    const documents = await loadCollectionDocuments(collectionId);
-    const systemPrompt = buildSystemPrompt(documents);
+    // Hybrid retrieval: vector + BM25 -> rerank -> section expansion
+    let sections: SectionResult[] = [];
+    try {
+      const retrievalResult = await retrieveDocuments({
+        query: queryText,
+        collectionId,
+        topK: 5,
+      });
+      sections = retrievalResult.sections;
+      console.log(
+        `Retrieved ${sections.length} sections in ${retrievalResult.timingMs}ms`,
+      );
+    } catch (err) {
+      console.error("Retrieval failed, proceeding with empty context:", err);
+    }
 
-    const fileNames = documents.map((d) => d.fileName);
+    const systemPrompt = buildSystemPrompt(sections);
+
+    const sectionPaths = sections.map((s) => s.sectionPath);
 
     await prisma.chatMessage.create({
       data: {
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
               sessionId: session!.id,
               role: "assistant",
               content: text,
-              sources: fileNames,
+              sources: sectionPaths,
             },
           });
         } catch (error) {
