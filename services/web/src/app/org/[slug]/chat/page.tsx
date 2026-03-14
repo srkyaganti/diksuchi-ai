@@ -80,19 +80,13 @@ type SourceDocumentPart = Extract<
 
 type SourcePart = SourceUrlPartExtended | SourceDocumentPart;
 
-interface SessionApiMessage {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  createdAt: string;
-}
-
 export default function ChatPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const orgSlug = params.slug as string;
 
   const [collectionId, setCollectionId] = useState<string>("");
+  const [collectionFileCount, setCollectionFileCount] = useState<number>(0);
   const [sessionId, setSessionId] = useState<string>("");
   const [isRecording, setIsRecording] = useState(false);
   const [languageCode, setLanguageCode] = useState<string>("");
@@ -115,14 +109,11 @@ export default function ChatPage() {
       const response = await fetch(`/api/chat/sessions/${sessionToLoad}`);
       if (response.ok) {
         const session = await response.json();
-        // Convert messages to the format expected by useChat
         const formattedMessages: UIMessage[] = session.messages.map(
-          (msg: SessionApiMessage) => ({
+          (msg: { id: string; role: string; content: string; parts: any }) => ({
             id: msg.id,
             role: msg.role,
-            parts: msg.content
-              ? [{ type: "text" as const, text: msg.content }]
-              : [],
+            parts: msg.parts || [{ type: "text" as const, text: msg.content }],
           })
         );
         setAllMessages(formattedMessages);
@@ -175,10 +166,13 @@ export default function ChatPage() {
 
   const handleCollectionSelect = (newCollectionId: string) => {
     setCollectionId(newCollectionId);
-    // Reset chat when switching collections
     setSessionId("");
     setAllMessages([]);
     setMessages([]);
+  };
+
+  const handleFileCountChange = (id: string, count: number) => {
+    setCollectionFileCount(count);
   };
 
   const handleVoiceTranscribed = ({
@@ -257,6 +251,7 @@ export default function ChatPage() {
           orgSlug={orgSlug}
           selectedCollectionId={collectionId}
           onSelectCollection={handleCollectionSelect}
+          onFileCountChange={handleFileCountChange}
         />
       </div>
 
@@ -444,6 +439,12 @@ export default function ChatPage() {
 
         {/* Input Area */}
         <div className="border-t p-4">
+          {collectionId && collectionFileCount === 0 && (
+            <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+              This collection has no files. Upload files to the collection to start chatting.
+            </div>
+          )}
+
           {!collectionId && (
             <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
               Select a collection from the left panel to start chatting
@@ -465,7 +466,7 @@ export default function ChatPage() {
             <PromptInputBody>
               <PromptInputTextarea
                 placeholder="Ask a question about your documents or upload files..."
-                disabled={!collectionId || status === "streaming"}
+                disabled={!collectionId || collectionFileCount === 0 || status === "streaming"}
               />
             </PromptInputBody>
 

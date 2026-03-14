@@ -88,6 +88,7 @@ model ChatMessage {
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   role      String // "user" or "assistant"
   content   String      @db.Text
+  parts     Json? // Full UIMessage parts array from AI SDK
   sources   String[] // Array of fileIds used for context
   createdAt DateTime    @default(now())
 
