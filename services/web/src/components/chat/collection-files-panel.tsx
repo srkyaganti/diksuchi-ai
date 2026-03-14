@@ -31,12 +31,14 @@ interface CollectionFilesPanelProps {
   orgSlug: string;
   selectedCollectionId: string;
   onSelectCollection: (collectionId: string) => void;
+  onFileCountChange?: (collectionId: string, count: number) => void;
 }
 
 export const CollectionFilesPanel = ({
   orgSlug,
   selectedCollectionId,
   onSelectCollection,
+  onFileCountChange,
 }: CollectionFilesPanelProps) => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -44,6 +46,33 @@ export const CollectionFilesPanel = ({
   const [loadingFiles, setLoadingFiles] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const fetchFiles = useCallback(
+    async (collectionId: string) => {
+      if (filesMap[collectionId] || loadingFiles.has(collectionId)) return;
+
+      setLoadingFiles((prev) => new Set(prev).add(collectionId));
+      try {
+        const response = await fetch(
+          `/api/collections/${collectionId}/files?onlyCompleted=true`
+        );
+        if (!response.ok) throw new Error("Failed to fetch files");
+        const data = await response.json();
+        setFilesMap((prev) => ({ ...prev, [collectionId]: data }));
+        onFileCountChange?.(collectionId, data.length);
+      } catch {
+        setFilesMap((prev) => ({ ...prev, [collectionId]: [] }));
+        onFileCountChange?.(collectionId, 0);
+      } finally {
+        setLoadingFiles((prev) => {
+          const next = new Set(prev);
+          next.delete(collectionId);
+          return next;
+        });
+      }
+    },
+    [filesMap, loadingFiles, onFileCountChange]
+  );
 
   useEffect(() => {
     const fetchCollections = async () => {
@@ -68,32 +97,15 @@ export const CollectionFilesPanel = ({
     };
 
     fetchCollections();
-  }, []);
+  }, [fetchFiles, onSelectCollection, selectedCollectionId]);
 
-  const fetchFiles = useCallback(
-    async (collectionId: string) => {
-      if (filesMap[collectionId] || loadingFiles.has(collectionId)) return;
-
-      setLoadingFiles((prev) => new Set(prev).add(collectionId));
-      try {
-        const response = await fetch(
-          `/api/collections/${collectionId}/files?onlyCompleted=true`
-        );
-        if (!response.ok) throw new Error("Failed to fetch files");
-        const data = await response.json();
-        setFilesMap((prev) => ({ ...prev, [collectionId]: data }));
-      } catch {
-        setFilesMap((prev) => ({ ...prev, [collectionId]: [] }));
-      } finally {
-        setLoadingFiles((prev) => {
-          const next = new Set(prev);
-          next.delete(collectionId);
-          return next;
-        });
-      }
-    },
-    [filesMap, loadingFiles]
-  );
+  useEffect(() => {
+    if (selectedCollectionId && filesMap[selectedCollectionId]) {
+      onFileCountChange?.(selectedCollectionId, filesMap[selectedCollectionId].length);
+    } else if (selectedCollectionId && !loadingFiles.has(selectedCollectionId)) {
+      fetchFiles(selectedCollectionId);
+    }
+  }, [selectedCollectionId, filesMap, loadingFiles, onFileCountChange, fetchFiles]);
 
   const handleToggleExpand = (collectionId: string) => {
     setExpandedIds((prev) => {

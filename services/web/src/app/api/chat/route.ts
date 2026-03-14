@@ -167,11 +167,14 @@ export async function POST(request: NextRequest) {
 
     const sectionPaths = sections.map((s) => s.sectionPath);
 
+    const userParts = lastMessage.parts || [{ type: "text" as const, text: queryText }];
+
     await prisma.chatMessage.create({
       data: {
         sessionId: session.id,
         role: "user",
         content: queryText,
+        parts: JSON.parse(JSON.stringify(userParts)),
       },
     });
 
@@ -182,13 +185,38 @@ export async function POST(request: NextRequest) {
       system: systemPrompt,
       messages: modelMessages,
       temperature: 0.0,
-      onFinish: async ({ text }) => {
+      onFinish: async ({ text, reasoning, toolCalls, toolResults }) => {
         try {
+          const parts: any[] = [];
+
+          if (reasoning && reasoning.length > 0) {
+            reasoning.forEach((r) => {
+              parts.push({ type: "reasoning", text: r.text });
+            });
+          }
+
+          if (toolCalls && toolCalls.length > 0) {
+            toolCalls.forEach((tc, i) => {
+              const tcAny = tc as any;
+              parts.push({
+                type: `tool-${tc.toolName}` as any,
+                input: tcAny.args,
+                output: toolResults?.[i],
+                state: toolResults?.[i] ? "output-available" : "pending",
+              });
+            });
+          }
+
+          if (text) {
+            parts.push({ type: "text", text });
+          }
+
           await prisma.chatMessage.create({
             data: {
               sessionId: session!.id,
               role: "assistant",
               content: text,
+              parts: parts.length > 0 ? JSON.parse(JSON.stringify(parts)) : undefined,
               sources: sectionPaths,
             },
           });

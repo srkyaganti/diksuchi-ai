@@ -23,6 +23,14 @@ export async function GET(
       where: { id },
       include: {
         messages: {
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            parts: true,
+            sources: true,
+            createdAt: true,
+          },
           orderBy: { createdAt: "asc" },
         },
         collection: {

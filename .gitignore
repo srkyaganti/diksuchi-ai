@@ -91,3 +91,5 @@ venv_chromadb/
 logs/
 
 private-docs
+# Uploaded files storage
+storage/

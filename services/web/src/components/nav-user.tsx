@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import {
   IconDotsVertical,
   IconLogout,
@@ -29,9 +30,18 @@ interface NavUserProps {
 export function NavUser({ organization }: NavUserProps) {
   const { data: session } = useSession()
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
 
-  if (!session) {
-    return null
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted || !session) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
+        <div className="h-8 w-8 rounded-lg bg-muted animate-pulse" />
+      </div>
+    )
   }
 
   const user = session.user
