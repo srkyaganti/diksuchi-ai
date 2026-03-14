@@ -28,10 +28,7 @@ function buildSystemPrompt(sections: SectionResult[]): string {
   }
 
   const sectionBlocks = sections.map((sec, i) => {
-    return `=== SECTION ${i + 1}: ${sec.sectionPath} ===
-[Document UUID: ${sec.documentUuid}]
-
-${sec.content}`;
+    return `=== SECTION ${i + 1}: ${sec.sectionPath} ===\n\n${sec.content}`;
   });
 
   return `You are a technical assistant for defence-sector S1000D documentation. You have access to the following sections retrieved from the knowledge base. These are safety-critical technical manuals -- pay special attention to any warnings, cautions, or safety information.
@@ -42,19 +39,6 @@ INSTRUCTIONS:
 - Answer the user's question accurately based ONLY on the sections above.
 - If the information is not sufficient to answer, say so clearly -- do NOT guess or fabricate information.
 - When citing information, reference the section path (e.g. "According to [Section Path]...").
-
-TABLES:
-- If the answer involves tabular data from the source, include the markdown table directly.
-- Preserve the exact table structure using markdown table syntax (| Column | Column |).
-
-IMAGES AND FIGURES:
-- If a relevant image, diagram, or figure from the source would help answer the question, include it.
-- Use this exact format: ![description](/api/files/uuid/{document-uuid}/images/{filename})
-- Replace {document-uuid} with the Document UUID shown above each section.
-- Replace {filename} with the image filename from the source (e.g., image_001.png, figure_1.jpg).
-- Provide meaningful alt text describing what the image shows.
-
-SAFETY:
 - Preserve any warnings, cautions, or safety notes from the source material.`;
 }
 
