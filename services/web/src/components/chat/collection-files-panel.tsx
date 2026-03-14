@@ -77,7 +77,7 @@ export const CollectionFilesPanel = ({
       setLoadingFiles((prev) => new Set(prev).add(collectionId));
       try {
         const response = await fetch(
-          `/api/collections/${collectionId}/files`
+          `/api/collections/${collectionId}/files?onlyCompleted=true`
         );
         if (!response.ok) throw new Error("Failed to fetch files");
         const data = await response.json();
@@ -149,8 +149,7 @@ export const CollectionFilesPanel = ({
             const isSelected = selectedCollectionId === collection.id;
             const files = filesMap[collection.id];
             const isLoadingFiles = loadingFiles.has(collection.id);
-            const fileCount =
-              collection._count?.files ?? files?.length ?? 0;
+            const fileCount = files?.length ?? collection._count?.files ?? 0;
 
             return (
               <div key={collection.id}>

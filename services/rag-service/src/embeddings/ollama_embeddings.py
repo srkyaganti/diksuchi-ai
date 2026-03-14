@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class OllamaEmbeddingFunction(EmbeddingFunction):
     """
-    ChromaDB EmbeddingFunction backed by Ollama's /api/embeddings endpoint.
+    ChromaDB EmbeddingFunction backed by Ollama's /api/embed endpoint.
     """
 
     def __init__(
@@ -56,12 +56,12 @@ class OllamaEmbeddingFunction(EmbeddingFunction):
 
     def _embed_single(self, text: str, client: httpx.Client) -> List[float]:
         resp = client.post(
-            f"{self.base_url}/api/embeddings",
-            json={"model": self.model_name, "prompt": text},
+            f"{self.base_url}/api/embed",
+            json={"model": self.model_name, "input": text},
             timeout=self.timeout,
         )
         resp.raise_for_status()
-        return resp.json()["embedding"]
+        return resp.json()["embeddings"][0]
 
     def __call__(self, input: Documents) -> Embeddings:
         if not input:

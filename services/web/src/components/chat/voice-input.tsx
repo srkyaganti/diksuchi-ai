@@ -238,24 +238,44 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
  */
 async function convertToWav(blob: Blob): Promise<Blob> {
   try {
-    // Create audio context
     const audioContext = new AudioContext();
-
-    // Convert blob to array buffer
     const arrayBuffer = await blob.arrayBuffer();
-
-    // Decode audio data
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-    // Convert AudioBuffer to WAV
-    const wavBuffer = audioBufferToWav(audioBuffer);
+    const targetSampleRate = 16000;
+    const resampledBuffer = await resampleAudioBuffer(audioBuffer, targetSampleRate);
+    const wavBuffer = audioBufferToWav(resampledBuffer);
 
-    // Create and return blob from WAV buffer
+    console.log("Audio conversion:", {
+      originalSampleRate: audioBuffer.sampleRate,
+      targetSampleRate,
+      duration: audioBuffer.duration.toFixed(2) + "s",
+    });
+
     return new Blob([wavBuffer], { type: "audio/wav" });
   } catch (error) {
     console.error("Error converting to WAV:", error);
     throw new Error("Failed to convert audio to WAV format");
   }
+}
+
+async function resampleAudioBuffer(audioBuffer: AudioBuffer, targetSampleRate: number): Promise<AudioBuffer> {
+  if (audioBuffer.sampleRate === targetSampleRate) {
+    return audioBuffer;
+  }
+
+  const offlineContext = new OfflineAudioContext(
+    audioBuffer.numberOfChannels,
+    Math.ceil(audioBuffer.duration * targetSampleRate),
+    targetSampleRate
+  );
+
+  const source = offlineContext.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(offlineContext.destination);
+  source.start();
+
+  return offlineContext.startRendering();
 }
 
 /**
