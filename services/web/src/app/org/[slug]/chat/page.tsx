@@ -168,7 +168,7 @@ export default function ChatPage() {
   const [collectionId, setCollectionId] = useState<string>("");
   const [collectionFileCount, setCollectionFileCount] = useState<number>(0);
   const [sessionId, setSessionId] = useState<string>("");
-  const [languageCode, setLanguageCode] = useState<string>("");
+  const [languageCode, setLanguageCode] = useState<string>("en");
   const [loading, setLoading] = useState(true);
   const hasRestoredSessionRef = useRef(false);
 
