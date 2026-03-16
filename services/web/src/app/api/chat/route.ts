@@ -185,15 +185,9 @@ export async function POST(request: NextRequest) {
       system: systemPrompt,
       messages: modelMessages,
       temperature: 0.0,
-      onFinish: async ({ text, reasoning, toolCalls, toolResults }) => {
+      onFinish: async ({ text, toolCalls, toolResults }) => {
         try {
           const parts: any[] = [];
-
-          if (reasoning && reasoning.length > 0) {
-            reasoning.forEach((r) => {
-              parts.push({ type: "reasoning", text: r.text });
-            });
-          }
 
           if (toolCalls && toolCalls.length > 0) {
             toolCalls.forEach((tc, i) => {
