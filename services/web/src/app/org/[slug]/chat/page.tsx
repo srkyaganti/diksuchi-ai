@@ -226,9 +226,9 @@ export default function ChatPage() {
     .find((msg) => msg.role === "assistant");
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-[calc(100vh-3.5rem)]">
       {/* Left Panel: Collections & Files */}
-      <div className="w-72 shrink-0 border-r bg-background">
+      <div className="w-72 shrink-0 border-r bg-background overflow-hidden">
         <CollectionFilesPanel
           orgSlug={orgSlug}
           selectedCollectionId={collectionId}
@@ -238,7 +238,7 @@ export default function ChatPage() {
       </div>
 
       {/* Right Panel: Chat */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* Chat Area */}
         <Conversation className="flex-1">
           <ConversationContent>
