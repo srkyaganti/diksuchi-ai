@@ -169,6 +169,7 @@ export async function POST(request: NextRequest) {
 
     const userParts = lastMessage.parts || [{ type: "text" as const, text: queryText }];
 
+    console.log(`Saving user message to session ${session.id}`);
     await prisma.chatMessage.create({
       data: {
         sessionId: session.id,
@@ -186,6 +187,11 @@ export async function POST(request: NextRequest) {
       messages: modelMessages,
       temperature: 0.0,
       onFinish: async ({ text, toolCalls, toolResults }) => {
+        if (!session?.id) {
+          console.error("Cannot save assistant message: session ID is missing");
+          return;
+        }
+        
         try {
           const parts: any[] = [];
 
@@ -207,13 +213,14 @@ export async function POST(request: NextRequest) {
 
           await prisma.chatMessage.create({
             data: {
-              sessionId: session!.id,
+              sessionId: session.id,
               role: "assistant",
               content: text,
               parts: parts.length > 0 ? JSON.parse(JSON.stringify(parts)) : undefined,
               sources: sectionPaths,
             },
           });
+          console.log(`Saved assistant message to session ${session.id}`);
         } catch (error) {
           console.error("Failed to save assistant message:", error);
         }

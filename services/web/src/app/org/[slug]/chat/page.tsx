@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import {
@@ -47,10 +47,6 @@ import {
   PromptInputHeader,
   PromptInputAttachments,
   PromptInputAttachment,
-  PromptInputActionMenu,
-  PromptInputActionMenuTrigger,
-  PromptInputActionMenuContent,
-  PromptInputActionAddAttachments,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import {
@@ -88,22 +84,21 @@ export default function ChatPage() {
   const [collectionId, setCollectionId] = useState<string>("");
   const [collectionFileCount, setCollectionFileCount] = useState<number>(0);
   const [sessionId, setSessionId] = useState<string>("");
-  const [isRecording, setIsRecording] = useState(false);
   const [languageCode, setLanguageCode] = useState<string>("");
-  const [allMessages, setAllMessages] = useState<UIMessage[]>([]);
   const [loading, setLoading] = useState(true);
-  const isLoadingSessionRef = useRef(false);
+  const hasRestoredSessionRef = useRef(false);
 
   // Extract sessionId from URL search parameters
   useEffect(() => {
     const urlSessionId = searchParams.get("sessionId");
     if (urlSessionId) {
       setSessionId(urlSessionId);
-      isLoadingSessionRef.current = true;
+      hasRestoredSessionRef.current = true;
       loadExistingMessages(urlSessionId);
     } else {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const loadExistingMessages = async (sessionToLoad: string) => {
@@ -112,26 +107,26 @@ export default function ChatPage() {
       if (response.ok) {
         const session = await response.json();
         const formattedMessages: UIMessage[] = session.messages.map(
-          (msg: { id: string; role: string; content: string; parts: any }) => ({
+          (msg: { id: string; role: string; content: string; parts: unknown }) => ({
             id: msg.id,
             role: msg.role,
             parts: msg.parts || [{ type: "text" as const, text: msg.content }],
           })
         );
-        setAllMessages(formattedMessages);
+        setMessages(formattedMessages);
         if (session.collectionId) {
           setCollectionId(session.collectionId);
         }
       }
     } catch (error) {
       console.error("Error loading existing messages:", error);
+      hasRestoredSessionRef.current = false;
     } finally {
-      isLoadingSessionRef.current = false;
       setLoading(false);
     }
   };
 
-  const { sendMessage, status, messages: chatMessages } = useChat({
+  const { sendMessage, status, messages: chatMessages, setMessages } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
     }),
@@ -141,37 +136,26 @@ export default function ChatPage() {
     },
   });
 
-  // Combine existing messages with new messages from useChat
-  const messages = useMemo(() => {
-    const existingIds = new Set(allMessages.map((m) => m.id));
-    const newMsgs = chatMessages.filter((m) => !existingIds.has(m.id));
-    return [...allMessages, ...newMsgs];
-  }, [allMessages, chatMessages]);
+  const messages = chatMessages;
 
-  // Update allMessages when new messages are added via chat
-  useEffect(() => {
-    if (chatMessages.length > 0) {
-      const existingIds = new Set(allMessages.map((m) => m.id));
-      const newMsgs = chatMessages.filter((m) => !existingIds.has(m.id));
-      if (newMsgs.length > 0) {
-        setAllMessages((prev) => [...prev, ...newMsgs]);
+  const handleCollectionSelect = useCallback(
+    (newCollectionId: string) => {
+      if (hasRestoredSessionRef.current) {
+        if (newCollectionId === collectionId) {
+          return;
+        }
+        hasRestoredSessionRef.current = false;
       }
-    }
-  }, [chatMessages, allMessages]);
-
-  const handleCollectionSelect = (newCollectionId: string) => {
-    if (isLoadingSessionRef.current) {
       setCollectionId(newCollectionId);
-      return;
-    }
-    setCollectionId(newCollectionId);
-    setSessionId("");
-    setAllMessages([]);
-  };
+      setSessionId("");
+      setMessages([]);
+    },
+    [collectionId, setMessages]
+  );
 
-  const handleFileCountChange = (id: string, count: number) => {
+  const handleFileCountChange = useCallback((id: string, count: number) => {
     setCollectionFileCount(count);
-  };
+  }, []);
 
   const handleVoiceTranscribed = ({
     text,
