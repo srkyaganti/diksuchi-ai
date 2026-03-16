@@ -10,7 +10,7 @@ import {
   isFileUIPart,
   isToolOrDynamicToolUIPart,
 } from "ai";
-import type { UIMessage, ToolUIPart } from "ai";
+import type { UIMessage, ToolUIPart, ChatStatus } from "ai";
 import {
   Conversation,
   ConversationContent,
@@ -47,6 +47,8 @@ import {
   PromptInputHeader,
   PromptInputAttachments,
   PromptInputAttachment,
+  PromptInputProvider,
+  usePromptInputController,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import {
@@ -75,6 +77,78 @@ type SourceDocumentPart = Extract<
 >;
 
 type SourcePart = SourceUrlPartExtended | SourceDocumentPart;
+
+function ChatInput({
+  collectionId,
+  collectionFileCount,
+  status,
+  languageCode,
+  onSubmit,
+  onVoiceTranscribed,
+}: {
+  collectionId: string;
+  collectionFileCount: number;
+  status: ChatStatus;
+  languageCode: string;
+  onSubmit: (message: PromptInputMessage) => void;
+  onVoiceTranscribed: (input: { text: string; languageCode: string; setInput: (value: string) => void }) => void;
+}) {
+  const { textInput } = usePromptInputController();
+
+  const handleVoiceTranscribed = (input: { text: string; languageCode: string }) => {
+    onVoiceTranscribed({ ...input, setInput: textInput.setInput });
+  };
+
+  return (
+    <div className="border-t p-4">
+      {collectionId && collectionFileCount === 0 && (
+        <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+          This collection has no files. Upload files to the collection to start chatting.
+        </div>
+      )}
+
+      {!collectionId && (
+        <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+          Select a collection from the left panel to start chatting
+        </div>
+      )}
+
+      <PromptInput
+        onSubmit={onSubmit}
+        className="mb-3"
+        globalDrop
+        multiple
+      >
+        <PromptInputHeader>
+          <PromptInputAttachments>
+            {(attachment) => <PromptInputAttachment data={attachment} />}
+          </PromptInputAttachments>
+        </PromptInputHeader>
+
+        <PromptInputBody>
+          <PromptInputTextarea
+            placeholder="Ask a question about your documents or upload files..."
+            disabled={!collectionId || collectionFileCount === 0 || status === "streaming"}
+          />
+        </PromptInputBody>
+
+        <PromptInputFooter>
+          <PromptInputTools>
+            <VoiceInput
+              onTranscribed={handleVoiceTranscribed}
+              isDisabled={!collectionId || status === "streaming"}
+            />
+          </PromptInputTools>
+
+          <PromptInputSubmit
+            status={status}
+            disabled={!collectionId || status === "streaming"}
+          />
+        </PromptInputFooter>
+      </PromptInput>
+    </div>
+  );
+}
 
 export default function ChatPage() {
   const params = useParams();
@@ -160,24 +234,20 @@ export default function ChatPage() {
   const handleVoiceTranscribed = ({
     text,
     languageCode,
+    setInput,
   }: {
     text: string;
     languageCode: string;
+    setInput: (value: string) => void;
   }) => {
-    // Submit voice input as a message
     if (!collectionId) {
       toast.error("Please select a collection first");
       return;
     }
 
     setLanguageCode(languageCode);
-
-    sendMessage(
-      { text },
-      {
-        body: { collectionId, sessionId: sessionId || undefined },
-      }
-    );
+    setInput(text);
+    toast.success("Transcription complete - review and edit before sending");
   };
 
   const handleSubmit = (message: PromptInputMessage) => {
@@ -414,53 +484,15 @@ export default function ChatPage() {
         </Conversation>
 
         {/* Input Area */}
-        <div className="border-t p-4">
-          {collectionId && collectionFileCount === 0 && (
-            <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-              This collection has no files. Upload files to the collection to start chatting.
-            </div>
-          )}
-
-          {!collectionId && (
-            <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-              Select a collection from the left panel to start chatting
-            </div>
-          )}
-
-          <PromptInput
+        <PromptInputProvider>
+          <ChatInput
+            collectionId={collectionId}
+            collectionFileCount={collectionFileCount}
+            status={status}
+            languageCode={languageCode}
             onSubmit={handleSubmit}
-            className="mb-3"
-            globalDrop
-            multiple
-          >
-            <PromptInputHeader>
-              <PromptInputAttachments>
-                {(attachment) => <PromptInputAttachment data={attachment} />}
-              </PromptInputAttachments>
-            </PromptInputHeader>
-
-            <PromptInputBody>
-              <PromptInputTextarea
-                placeholder="Ask a question about your documents or upload files..."
-                disabled={!collectionId || collectionFileCount === 0 || status === "streaming"}
-              />
-            </PromptInputBody>
-
-            <PromptInputFooter>
-              <PromptInputTools>
-                <VoiceInput
-                  onTranscribed={handleVoiceTranscribed}
-                  isDisabled={!collectionId || status === "streaming"}
-                />
-              </PromptInputTools>
-
-              <PromptInputSubmit
-                status={status}
-                disabled={!collectionId || status === "streaming"}
-              />
-            </PromptInputFooter>
-          </PromptInput>
-
+            onVoiceTranscribed={handleVoiceTranscribed}
+          />
           {lastAssistantMessage && lastAssistantMessage.parts && (
             <VoiceOutput
               text={extractTextContent(lastAssistantMessage.parts)}
@@ -469,7 +501,7 @@ export default function ChatPage() {
               autoPlay={true}
             />
           )}
-        </div>
+        </PromptInputProvider>
       </div>
     </div>
   );
