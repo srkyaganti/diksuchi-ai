@@ -134,17 +134,6 @@ export default function ChatPage() {
       console.error("Chat error:", error);
       toast.error("Failed to send message: " + error.message);
     },
-    onData: (dataPart) => {
-      if (dataPart.type === "data-session") {
-        const data = dataPart.data as { sessionId: string };
-        if (data.sessionId) {
-          setSessionId(data.sessionId);
-          const url = new URL(window.location.href);
-          url.searchParams.set("sessionId", data.sessionId);
-          window.history.replaceState({}, "", url.toString());
-        }
-      }
-    },
   });
 
   const messages = chatMessages;

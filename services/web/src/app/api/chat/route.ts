@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import {
-  streamText,
-  convertToModelMessages,
-  createUIMessageStream,
-  createUIMessageStreamResponse,
-} from "ai";
+import { streamText, convertToModelMessages } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { retrieveDocuments } from "@/lib/python-client";
 import type { SectionResult } from "@/lib/python-client";
@@ -186,68 +181,55 @@ export async function POST(request: NextRequest) {
 
     const modelMessages = convertToModelMessages(messages);
 
-    const stream = createUIMessageStream({
-      execute: async ({ writer }) => {
-        writer.write({
-          type: "data-session",
-          data: { sessionId: session.id },
-        });
+    const result = streamText({
+      model: llmService(modelName),
+      system: systemPrompt,
+      messages: modelMessages,
+      temperature: 0.0,
+      onFinish: async ({ text, toolCalls, toolResults }) => {
+        if (!session?.id) {
+          console.error("Cannot save assistant message: session ID is missing");
+          return;
+        }
+        
+        try {
+          const parts: any[] = [];
 
-        const result = streamText({
-          model: llmService(modelName),
-          system: systemPrompt,
-          messages: modelMessages,
-          temperature: 0.0,
-          onFinish: async ({ text, toolCalls, toolResults }) => {
-            if (!session?.id) {
-              console.error("Cannot save assistant message: session ID is missing");
-              return;
-            }
-
-            try {
-              const parts: any[] = [];
-
-              if (toolCalls && toolCalls.length > 0) {
-                toolCalls.forEach((tc, i) => {
-                  const tcAny = tc as any;
-                  parts.push({
-                    type: `tool-${tc.toolName}` as any,
-                    input: tcAny.args,
-                    output: toolResults?.[i],
-                    state: toolResults?.[i] ? "output-available" : "pending",
-                  });
-                });
-              }
-
-              if (text) {
-                parts.push({ type: "text", text });
-              }
-
-              await prisma.chatMessage.create({
-                data: {
-                  sessionId: session.id,
-                  role: "assistant",
-                  content: text,
-                  parts:
-                    parts.length > 0
-                      ? JSON.parse(JSON.stringify(parts))
-                      : undefined,
-                  sources: sectionPaths,
-                },
+          if (toolCalls && toolCalls.length > 0) {
+            toolCalls.forEach((tc, i) => {
+              const tcAny = tc as any;
+              parts.push({
+                type: `tool-${tc.toolName}` as any,
+                input: tcAny.args,
+                output: toolResults?.[i],
+                state: toolResults?.[i] ? "output-available" : "pending",
               });
-              console.log(`Saved assistant message to session ${session.id}`);
-            } catch (error) {
-              console.error("Failed to save assistant message:", error);
-            }
-          },
-        });
+            });
+          }
 
-        writer.merge(
-          result.toUIMessageStream({
-            generateMessageId: () => nanoid(),
-          }),
-        );
+          if (text) {
+            parts.push({ type: "text", text });
+          }
+
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: session.id,
+              role: "assistant",
+              content: text,
+              parts: parts.length > 0 ? JSON.parse(JSON.stringify(parts)) : undefined,
+              sources: sectionPaths,
+            },
+          });
+          console.log(`Saved assistant message to session ${session.id}`);
+        } catch (error) {
+          console.error("Failed to save assistant message:", error);
+        }
       },
+    });
+
+    return result.toUIMessageStreamResponse({
+      originalMessages: messages,
+      generateMessageId: () => nanoid(),
       onError: (error) => {
         console.error("Stream error:", error);
         if (error == null) return "An unknown error occurred";
@@ -256,8 +238,6 @@ export async function POST(request: NextRequest) {
         return JSON.stringify(error);
       },
     });
-
-    return createUIMessageStreamResponse({ stream });
   } catch (error) {
     console.error("Chat API error:", error);
     const errorMessage =
