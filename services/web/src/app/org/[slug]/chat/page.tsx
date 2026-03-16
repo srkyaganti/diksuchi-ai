@@ -83,6 +83,7 @@ function ChatInput({
   collectionFileCount,
   status,
   languageCode,
+  lastAssistantText,
   onSubmit,
   onVoiceTranscribed,
 }: {
@@ -90,6 +91,7 @@ function ChatInput({
   collectionFileCount: number;
   status: ChatStatus;
   languageCode: string;
+  lastAssistantText: string;
   onSubmit: (message: PromptInputMessage) => void;
   onVoiceTranscribed: (input: { text: string; languageCode: string; setInput: (value: string) => void }) => void;
 }) {
@@ -138,6 +140,14 @@ function ChatInput({
               onTranscribed={handleVoiceTranscribed}
               isDisabled={!collectionId || status === "streaming"}
             />
+            {lastAssistantText && (
+              <VoiceOutput
+                text={lastAssistantText}
+                languageCode={languageCode}
+                isDisabled={status === "streaming"}
+                autoPlay={true}
+              />
+            )}
           </PromptInputTools>
 
           <PromptInputSubmit
@@ -294,6 +304,10 @@ export default function ChatPage() {
     .slice()
     .reverse()
     .find((msg) => msg.role === "assistant");
+
+  const lastAssistantText = lastAssistantMessage?.parts
+    ? extractTextContent(lastAssistantMessage.parts)
+    : "";
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)]">
@@ -490,17 +504,10 @@ export default function ChatPage() {
             collectionFileCount={collectionFileCount}
             status={status}
             languageCode={languageCode}
+            lastAssistantText={lastAssistantText}
             onSubmit={handleSubmit}
             onVoiceTranscribed={handleVoiceTranscribed}
           />
-          {lastAssistantMessage && lastAssistantMessage.parts && (
-            <VoiceOutput
-              text={extractTextContent(lastAssistantMessage.parts)}
-              languageCode={languageCode}
-              isDisabled={status === "streaming"}
-              autoPlay={true}
-            />
-          )}
         </PromptInputProvider>
       </div>
     </div>
