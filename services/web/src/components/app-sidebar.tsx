@@ -29,9 +29,14 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export function AppSidebar({ organization, ...props }: AppSidebarProps) {
   const { data: session } = useSession();
   const user = session?.user as any;
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // If organization context exists, use org-scoped URLs
-  const navItems = organization
+  const baseNavItems = organization
     ? [
         {
           title: "Chat",
@@ -73,14 +78,16 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
         },
       ];
 
-  // Add admin link for super admins
-  if (user?.isSuperAdmin) {
-    navItems.push({
-      title: "Admin",
-      url: "/admin",
-      icon: IconShieldCheck,
-    });
-  }
+  const navItems = mounted && user?.isSuperAdmin
+    ? [
+        ...baseNavItems,
+        {
+          title: "Admin",
+          url: "/admin",
+          icon: IconShieldCheck,
+        },
+      ]
+    : baseNavItems;
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
