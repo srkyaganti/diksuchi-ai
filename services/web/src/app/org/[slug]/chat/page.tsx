@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import {
@@ -63,7 +63,7 @@ import { CollectionFilesPanel } from "@/components/chat/collection-files-panel";
 import { VoiceInput } from "@/components/chat/voice-input";
 import { VoiceOutput } from "@/components/chat/voice-output";
 import { toast } from "sonner";
-import { CopyIcon, RefreshCcwIcon } from "lucide-react";
+import { CopyIcon } from "lucide-react";
 
 type SourceUrlPartExtended = Extract<
   UIMessage["parts"][number],
@@ -92,12 +92,14 @@ export default function ChatPage() {
   const [languageCode, setLanguageCode] = useState<string>("");
   const [allMessages, setAllMessages] = useState<UIMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoadingSessionRef = useRef(false);
 
   // Extract sessionId from URL search parameters
   useEffect(() => {
     const urlSessionId = searchParams.get("sessionId");
     if (urlSessionId) {
       setSessionId(urlSessionId);
+      isLoadingSessionRef.current = true;
       loadExistingMessages(urlSessionId);
     } else {
       setLoading(false);
@@ -117,15 +119,19 @@ export default function ChatPage() {
           })
         );
         setAllMessages(formattedMessages);
+        if (session.collectionId) {
+          setCollectionId(session.collectionId);
+        }
       }
     } catch (error) {
       console.error("Error loading existing messages:", error);
     } finally {
+      isLoadingSessionRef.current = false;
       setLoading(false);
     }
   };
 
-  const { sendMessage, status, regenerate, messages: chatMessages } = useChat({
+  const { sendMessage, status, messages: chatMessages } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
     }),
@@ -136,39 +142,31 @@ export default function ChatPage() {
   });
 
   // Combine existing messages with new messages from useChat
-  const [messages, setMessages] = useState<UIMessage[]>(allMessages);
+  const messages = useMemo(() => {
+    const existingIds = new Set(allMessages.map((m) => m.id));
+    const newMsgs = chatMessages.filter((m) => !existingIds.has(m.id));
+    return [...allMessages, ...newMsgs];
+  }, [allMessages, chatMessages]);
 
-  // Update messages when allMessages change (from existing chat load)
-  useEffect(() => {
-    setMessages(allMessages);
-  }, [allMessages]);
-
-  // Merge chatMessages from useChat with existing messages
+  // Update allMessages when new messages are added via chat
   useEffect(() => {
     if (chatMessages.length > 0) {
-      setMessages((prev) => {
-        const existingIds = new Set(prev.map((m) => m.id));
-        const newMsgs = chatMessages.filter((m) => !existingIds.has(m.id));
-        if (newMsgs.length > 0) {
-          return [...prev, ...newMsgs];
-        }
-        return prev;
-      });
+      const existingIds = new Set(allMessages.map((m) => m.id));
+      const newMsgs = chatMessages.filter((m) => !existingIds.has(m.id));
+      if (newMsgs.length > 0) {
+        setAllMessages((prev) => [...prev, ...newMsgs]);
+      }
     }
-  }, [chatMessages]);
-
-  // Update allMessages when new messages are added
-  useEffect(() => {
-    if (messages.length > allMessages.length) {
-      setAllMessages(messages);
-    }
-  }, [messages, allMessages.length]);
+  }, [chatMessages, allMessages]);
 
   const handleCollectionSelect = (newCollectionId: string) => {
+    if (isLoadingSessionRef.current) {
+      setCollectionId(newCollectionId);
+      return;
+    }
     setCollectionId(newCollectionId);
     setSessionId("");
     setAllMessages([]);
-    setMessages([]);
   };
 
   const handleFileCountChange = (id: string, count: number) => {
@@ -410,12 +408,6 @@ export default function ChatPage() {
                     {message.role === "assistant" &&
                       message.id === messages[messages.length - 1]?.id && (
                         <MessageActions>
-                          <MessageAction
-                            onClick={() => regenerate()}
-                            label="Retry"
-                          >
-                            <RefreshCcwIcon className="size-3" />
-                          </MessageAction>
                           <MessageAction
                             onClick={() =>
                               navigator.clipboard.writeText(
