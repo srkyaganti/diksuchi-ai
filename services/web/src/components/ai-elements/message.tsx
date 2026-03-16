@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
-import { Streamdown } from "streamdown";
+import { Streamdown, defaultRehypePlugins, defaultRemarkPlugins } from "streamdown";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -306,6 +306,10 @@ export const MessageBranchPage = ({
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
+const safeRehypePlugins = Object.entries(defaultRehypePlugins)
+  .filter(([key]) => key !== "raw")
+  .map(([, plugin]) => plugin);
+
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (
     <Streamdown
@@ -313,6 +317,8 @@ export const MessageResponse = memo(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className
       )}
+      rehypePlugins={safeRehypePlugins}
+      remarkPlugins={Object.values(defaultRemarkPlugins)}
       {...props}
     />
   ),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   IconFolder,
   IconFolderOpen,
@@ -46,6 +46,8 @@ export const CollectionFilesPanel = ({
   const [loadingFiles, setLoadingFiles] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasAutoSelectedRef = useRef(false);
+  const initialSelectionRef = useRef(selectedCollectionId);
 
   const fetchFiles = useCallback(
     async (collectionId: string) => {
@@ -71,7 +73,7 @@ export const CollectionFilesPanel = ({
         });
       }
     },
-    [filesMap, loadingFiles, onFileCountChange]
+    [filesMap, loadingFiles]
   );
 
   useEffect(() => {
@@ -82,10 +84,10 @@ export const CollectionFilesPanel = ({
         const data = await response.json();
         setCollections(data);
 
-        if (!selectedCollectionId && data.length > 0) {
+        if (!initialSelectionRef.current && !hasAutoSelectedRef.current && data.length > 0) {
+          hasAutoSelectedRef.current = true;
           onSelectCollection(data[0].id);
           setExpandedIds(new Set([data[0].id]));
-          fetchFiles(data[0].id);
         }
       } catch (err) {
         setError(
@@ -97,15 +99,16 @@ export const CollectionFilesPanel = ({
     };
 
     fetchCollections();
-  }, [fetchFiles, onSelectCollection, selectedCollectionId]);
+  }, [onSelectCollection]);
 
   useEffect(() => {
-    if (selectedCollectionId && filesMap[selectedCollectionId]) {
-      onFileCountChange?.(selectedCollectionId, filesMap[selectedCollectionId].length);
-    } else if (selectedCollectionId && !loadingFiles.has(selectedCollectionId)) {
+    if (selectedCollectionId && !filesMap[selectedCollectionId] && !loadingFiles.has(selectedCollectionId)) {
       fetchFiles(selectedCollectionId);
     }
-  }, [selectedCollectionId, filesMap, loadingFiles, onFileCountChange, fetchFiles]);
+    if (selectedCollectionId && filesMap[selectedCollectionId]) {
+      onFileCountChange?.(selectedCollectionId, filesMap[selectedCollectionId].length);
+    }
+  }, [selectedCollectionId, filesMap, loadingFiles, fetchFiles, onFileCountChange]);
 
   const handleToggleExpand = (collectionId: string) => {
     setExpandedIds((prev) => {
