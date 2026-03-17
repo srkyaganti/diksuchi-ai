@@ -87,7 +87,7 @@ export function ChatHistoryTable({
                   <div className="flex justify-end gap-2">
                     <Button variant="ghost" size="sm" asChild>
                       <Link
-                        href={`/org/${validOrgSlug}/chat?sessionId=${session.id}`}
+                        href={`/org/${validOrgSlug}/chat/${session.id}`}
                       >
                         Open
                       </Link>
