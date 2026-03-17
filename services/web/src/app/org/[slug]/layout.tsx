@@ -45,11 +45,18 @@ export default async function OrgLayout({
     }
   }
 
+  const userInfo = {
+    name: user.name || null,
+    email: user.email,
+    image: user.image || null,
+    isSuperAdmin: !!user.isSuperAdmin,
+  };
+
   return (
     <SidebarProvider>
-      <AppSidebar organization={org} />
+      <AppSidebar organization={org} user={userInfo} />
       <SidebarInset>
-        <Navbar organization={org} />
+        <Navbar organization={org} user={userInfo} />
         {children}
       </SidebarInset>
     </SidebarProvider>
