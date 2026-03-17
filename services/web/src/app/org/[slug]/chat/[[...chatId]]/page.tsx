@@ -531,12 +531,6 @@ export default function ChatPage() {
           <ConversationScrollButton />
         </Conversation>
 
-        {collectionName && messages.length > 0 && (
-          <div className="px-4 py-1.5 text-xs text-muted-foreground border-t bg-muted/30">
-            Querying: <span className="font-medium">{collectionName}</span>
-          </div>
-        )}
-
         {/* Input Area */}
         <PromptInputProvider>
           <ChatInput
