@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import {
@@ -222,10 +222,12 @@ export default function ChatPage() {
     }
   };
 
+  const chatTransport = useMemo(
+    () => new DefaultChatTransport({ api: "/api/chat" }),
+    []
+  );
   const { sendMessage, status, messages: chatMessages, setMessages } = useChat({
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-    }),
+    transport: chatTransport,
     onError: (error) => {
       console.error("Chat error:", error);
       toast.error("Failed to send message: " + error.message);
@@ -297,7 +299,7 @@ export default function ChatPage() {
         currentSessionId = newSession.id;
         setSessionId(currentSessionId);
         justCreatedSessionRef.current = true;
-        router.replace(`/org/${orgSlug}/chat/${currentSessionId}`);
+        window.history.replaceState(null, '', `/org/${orgSlug}/chat/${currentSessionId}`);
       } catch (error) {
         console.error("Error creating session:", error);
         toast.error("Failed to create chat session");
