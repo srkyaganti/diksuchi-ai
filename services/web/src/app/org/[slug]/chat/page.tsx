@@ -140,14 +140,12 @@ function ChatInput({
               onTranscribed={handleVoiceTranscribed}
               isDisabled={!collectionId || status === "streaming"}
             />
-            {lastAssistantText && (
-              <VoiceOutput
-                text={lastAssistantText}
-                languageCode={languageCode}
-                isDisabled={status === "streaming"}
-                autoPlay={true}
-              />
-            )}
+            <VoiceOutput
+              text={lastAssistantText}
+              languageCode={languageCode}
+              isDisabled={status !== "ready"}
+              autoPlay={true}
+            />
           </PromptInputTools>
 
           <PromptInputSubmit
