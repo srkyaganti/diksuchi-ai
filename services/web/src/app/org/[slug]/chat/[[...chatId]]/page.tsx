@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import {
@@ -170,6 +170,7 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string>("");
   const [languageCode, setLanguageCode] = useState<string>("en");
   const [loading, setLoading] = useState(true);
+  const justCreatedSessionRef = useRef(false);
 
   // Backward-compat redirect for old ?sessionId= URLs
   useEffect(() => {
@@ -182,6 +183,10 @@ export default function ChatPage() {
   // Load session from path-based chatId
   useEffect(() => {
     if (chatIdFromUrl) {
+      if (justCreatedSessionRef.current) {
+        justCreatedSessionRef.current = false;
+        return;
+      }
       setSessionId(chatIdFromUrl);
       loadExistingMessages(chatIdFromUrl);
     } else {
@@ -291,6 +296,7 @@ export default function ChatPage() {
         const newSession = await res.json();
         currentSessionId = newSession.id;
         setSessionId(currentSessionId);
+        justCreatedSessionRef.current = true;
         router.replace(`/org/${orgSlug}/chat/${currentSessionId}`);
       } catch (error) {
         console.error("Error creating session:", error);
