@@ -22,18 +22,28 @@ import { useSession } from "@/lib/auth-client";
 import { Organization } from "@/generated/prisma/client";
 import { OrganizationSwitcher } from "@/components/org/organization-switcher";
 
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  organization?: Organization;
+export interface UserInfo {
+  name: string | null;
+  email: string;
+  image: string | null;
+  isSuperAdmin: boolean;
 }
 
-export function AppSidebar({ organization, ...props }: AppSidebarProps) {
-  const { data: session } = useSession();
-  const user = session?.user as any;
-  const [mounted, setMounted] = React.useState(false);
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  organization?: Organization;
+  user?: UserInfo;
+}
 
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
+export function AppSidebar({ organization, user: userProp, ...props }: AppSidebarProps) {
+  const { data: session } = useSession();
+
+  // Use server-provided user prop if available, otherwise fall back to client session
+  const user = userProp ?? (session ? {
+    name: session.user.name || null,
+    email: session.user.email,
+    image: session.user.image || null,
+    isSuperAdmin: !!(session.user as any).isSuperAdmin,
+  } : null);
 
   // If organization context exists, use org-scoped URLs
   const baseNavItems = organization
@@ -78,7 +88,7 @@ export function AppSidebar({ organization, ...props }: AppSidebarProps) {
         },
       ];
 
-  const navItems = mounted && user?.isSuperAdmin
+  const navItems = user?.isSuperAdmin
     ? [
         ...baseNavItems,
         {

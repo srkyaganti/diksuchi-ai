@@ -24,6 +24,13 @@ export default async function AdminLayout({
     redirect("/select-organization");
   }
 
+  const userInfo = {
+    name: user.name || null,
+    email: user.email,
+    image: user.image || null,
+    isSuperAdmin: !!user.isSuperAdmin,
+  };
+
   return (
     <SidebarProvider
       style={{
@@ -31,9 +38,9 @@ export default async function AdminLayout({
         "--header-height": "calc(var(--spacing) * 12)",
       } as React.CSSProperties}
     >
-      <AppSidebar variant="inset" />
+      <AppSidebar variant="inset" user={userInfo} />
       <SidebarInset>
-        <Navbar />
+        <Navbar user={userInfo} />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             {children}

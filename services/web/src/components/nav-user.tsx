@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import {
   IconDotsVertical,
   IconLogout,
@@ -22,21 +21,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useSession, signOut } from "@/lib/auth-client"
+import type { UserInfo } from "@/components/app-sidebar"
 
 interface NavUserProps {
   organization?: Organization
+  user?: UserInfo
 }
 
-export function NavUser({ organization }: NavUserProps) {
+export function NavUser({ organization, user: userProp }: NavUserProps) {
   const { data: session } = useSession()
   const router = useRouter()
-  const [mounted, setMounted] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  // Use server-provided user prop if available, otherwise fall back to client session
+  const user = userProp ?? (session ? {
+    name: session.user.name || null,
+    email: session.user.email,
+    image: session.user.image || null,
+    isSuperAdmin: false,
+  } : null)
 
-  if (!mounted || !session) {
+  if (!user) {
     return (
       <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
         <div className="h-8 w-8 rounded-lg bg-muted animate-pulse" />
@@ -44,7 +48,6 @@ export function NavUser({ organization }: NavUserProps) {
     )
   }
 
-  const user = session.user
   const initials = user.name
     ?.split(" ")
     .map((n) => n[0])
