@@ -30,7 +30,7 @@ interface FileItem {
 interface CollectionFilesPanelProps {
   orgSlug: string;
   selectedCollectionId: string;
-  onSelectCollection: (collectionId: string) => void;
+  onSelectCollection: (collectionId: string, collectionName?: string) => void;
   onFileCountChange?: (collectionId: string, count: number) => void;
 }
 
@@ -86,7 +86,7 @@ export const CollectionFilesPanel = ({
 
         if (!initialSelectionRef.current && !hasAutoSelectedRef.current && data.length > 0) {
           hasAutoSelectedRef.current = true;
-          onSelectCollection(data[0].id);
+          onSelectCollection(data[0].id, data[0].name);
           setExpandedIds(new Set([data[0].id]));
         }
       } catch (err) {
@@ -124,7 +124,8 @@ export const CollectionFilesPanel = ({
   };
 
   const handleSelectCollection = (collectionId: string) => {
-    onSelectCollection(collectionId);
+    const collection = collections.find(c => c.id === collectionId);
+    onSelectCollection(collectionId, collection?.name);
     if (!expandedIds.has(collectionId)) {
       handleToggleExpand(collectionId);
     }

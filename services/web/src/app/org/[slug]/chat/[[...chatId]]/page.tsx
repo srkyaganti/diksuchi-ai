@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import {
   DefaultChatTransport,
@@ -130,7 +130,7 @@ function ChatInput({
         <PromptInputBody>
           <PromptInputTextarea
             placeholder="Ask a question about your documents or upload files..."
-            disabled={!collectionId || collectionFileCount === 0 || status === "streaming"}
+            disabled={!collectionId || status === "streaming"}
           />
         </PromptInputBody>
 
@@ -160,49 +160,58 @@ function ChatInput({
 
 export default function ChatPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
+  const router = useRouter();
   const orgSlug = params.slug as string;
+  const chatIdFromUrl = (params.chatId as string[] | undefined)?.[0];
 
   const [collectionId, setCollectionId] = useState<string>("");
+  const [collectionName, setCollectionName] = useState<string>("");
   const [collectionFileCount, setCollectionFileCount] = useState<number>(0);
   const [sessionId, setSessionId] = useState<string>("");
   const [languageCode, setLanguageCode] = useState<string>("en");
   const [loading, setLoading] = useState(true);
-  const hasRestoredSessionRef = useRef(false);
 
-  // Extract sessionId from URL search parameters
+  // Backward-compat redirect for old ?sessionId= URLs
   useEffect(() => {
-    const urlSessionId = searchParams.get("sessionId");
-    if (urlSessionId) {
-      setSessionId(urlSessionId);
-      hasRestoredSessionRef.current = true;
-      loadExistingMessages(urlSessionId);
+    const legacySessionId = new URLSearchParams(window.location.search).get("sessionId");
+    if (legacySessionId && !chatIdFromUrl) {
+      router.replace(`/org/${orgSlug}/chat/${legacySessionId}`);
+    }
+  }, [chatIdFromUrl, orgSlug, router]);
+
+  // Load session from path-based chatId
+  useEffect(() => {
+    if (chatIdFromUrl) {
+      setSessionId(chatIdFromUrl);
+      loadExistingMessages(chatIdFromUrl);
     } else {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [chatIdFromUrl]);
 
   const loadExistingMessages = async (sessionToLoad: string) => {
     try {
       const response = await fetch(`/api/chat/sessions/${sessionToLoad}`);
-      if (response.ok) {
-        const session = await response.json();
-        const formattedMessages: UIMessage[] = session.messages.map(
-          (msg: { id: string; role: string; content: string; parts: unknown }) => ({
-            id: msg.id,
-            role: msg.role,
-            parts: msg.parts || [{ type: "text" as const, text: msg.content }],
-          })
-        );
-        setMessages(formattedMessages);
-        if (session.collectionId) {
-          setCollectionId(session.collectionId);
-        }
+      if (!response.ok) {
+        toast.error("Chat session not found");
+        router.replace(`/org/${orgSlug}/chat`);
+        return;
+      }
+      const session = await response.json();
+      const formattedMessages: UIMessage[] = session.messages.map(
+        (msg: { id: string; role: string; content: string; parts: unknown }) => ({
+          id: msg.id,
+          role: msg.role,
+          parts: msg.parts || [{ type: "text" as const, text: msg.content }],
+        })
+      );
+      setMessages(formattedMessages);
+      if (session.collectionId) {
+        setCollectionId(session.collectionId);
       }
     } catch (error) {
       console.error("Error loading existing messages:", error);
-      hasRestoredSessionRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -221,18 +230,12 @@ export default function ChatPage() {
   const messages = chatMessages;
 
   const handleCollectionSelect = useCallback(
-    (newCollectionId: string) => {
-      if (hasRestoredSessionRef.current) {
-        if (newCollectionId === collectionId) {
-          return;
-        }
-        hasRestoredSessionRef.current = false;
-      }
+    (newCollectionId: string, name?: string) => {
+      if (newCollectionId === collectionId) return;
       setCollectionId(newCollectionId);
-      setSessionId("");
-      setMessages([]);
+      if (name) setCollectionName(name);
     },
-    [collectionId, setMessages]
+    [collectionId]
   );
 
   const handleFileCountChange = useCallback((id: string, count: number) => {
@@ -258,7 +261,7 @@ export default function ChatPage() {
     toast.success("Transcription complete - review and edit before sending");
   };
 
-  const handleSubmit = (message: PromptInputMessage) => {
+  const handleSubmit = async (message: PromptInputMessage) => {
     if (!collectionId) {
       toast.error("Please select a collection first");
       return;
@@ -271,6 +274,31 @@ export default function ChatPage() {
       return;
     }
 
+    let currentSessionId = sessionId;
+
+    if (!currentSessionId) {
+      try {
+        const title = (message.text || "New Chat").substring(0, 50);
+        const res = await fetch("/api/chat/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collectionId, title }),
+        });
+        if (!res.ok) {
+          toast.error("Failed to create chat session");
+          return;
+        }
+        const newSession = await res.json();
+        currentSessionId = newSession.id;
+        setSessionId(currentSessionId);
+        router.replace(`/org/${orgSlug}/chat/${currentSessionId}`);
+      } catch (error) {
+        console.error("Error creating session:", error);
+        toast.error("Failed to create chat session");
+        return;
+      }
+    }
+
     sendMessage(
       {
         text: message.text || "Sent with attachments",
@@ -279,7 +307,7 @@ export default function ChatPage() {
       {
         body: {
           collectionId,
-          sessionId: sessionId || undefined,
+          sessionId: currentSessionId,
         },
       }
     );
@@ -336,7 +364,7 @@ export default function ChatPage() {
                 title="Welcome to RAG Chat"
                 description={
                   collectionId
-                    ? sessionId
+                    ? chatIdFromUrl
                       ? "Your previous conversation will appear here. Start asking new questions!"
                       : "Start asking questions about your documents or upload files to analyze"
                     : "Select a collection from the left panel to begin chatting"
@@ -494,6 +522,12 @@ export default function ChatPage() {
 
           <ConversationScrollButton />
         </Conversation>
+
+        {collectionName && messages.length > 0 && (
+          <div className="px-4 py-1.5 text-xs text-muted-foreground border-t bg-muted/30">
+            Querying: <span className="font-medium">{collectionName}</span>
+          </div>
+        )}
 
         {/* Input Area */}
         <PromptInputProvider>
