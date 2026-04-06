@@ -174,6 +174,7 @@ class SectionResult(BaseModel):
     sectionId: str
     documentUuid: str
     score: float
+    images: List[str] = []
 
 
 class RetrieveResponse(BaseModel):
@@ -343,6 +344,7 @@ async def retrieve(req: RetrieveRequest):
                 sectionId=s["section_id"],
                 documentUuid=s["document_uuid"],
                 score=s["score"],
+                images=s.get("images", []),
             )
             for s in sections
         ],

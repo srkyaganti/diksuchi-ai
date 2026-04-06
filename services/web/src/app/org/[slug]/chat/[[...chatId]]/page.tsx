@@ -61,7 +61,42 @@ import { CollectionFilesPanel } from "@/components/chat/collection-files-panel";
 import { VoiceInput } from "@/components/chat/voice-input";
 import { VoiceOutput } from "@/components/chat/voice-output";
 import { toast } from "sonner";
-import { CopyIcon } from "lucide-react";
+import { CopyIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
+
+function DocumentImage({ src, alt }: { src: string; alt: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="my-2">
+      <div className="relative inline-block">
+        <img
+          src={src}
+          alt={alt}
+          className="max-w-full rounded-lg border cursor-pointer hover:opacity-90 transition"
+          style={{
+            maxHeight: expanded ? "none" : "400px",
+            objectFit: "contain",
+          }}
+          onClick={() => setExpanded(!expanded)}
+        />
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="absolute top-2 right-2 rounded-full bg-background/80 p-1 backdrop-blur-sm hover:bg-background transition-opacity opacity-0 group-hover:opacity-100"
+          style={{ opacity: 0.7 }}
+          type="button"
+        >
+          {expanded ? (
+            <ZoomOutIcon className="size-4" />
+          ) : (
+            <ZoomInIcon className="size-4" />
+          )}
+        </button>
+      </div>
+      {alt && alt !== "Document image" && (
+        <p className="text-xs text-muted-foreground mt-1">{alt}</p>
+      )}
+    </div>
+  );
+}
 
 type SourceUrlPartExtended = Extract<
   UIMessage["parts"][number],
@@ -445,6 +480,19 @@ export default function ChatPage() {
                             );
                           }
                           if (isFileUIPart(part)) {
+                            const isDocImage =
+                              message.role === "assistant" &&
+                              part.url?.includes("/api/files/") &&
+                              part.url?.includes("/images/");
+                            if (isDocImage) {
+                              return (
+                                <DocumentImage
+                                  key={`${message.id}-docimg-${i}`}
+                                  src={part.url!}
+                                  alt={part.filename || "Document image"}
+                                />
+                              );
+                            }
                             return (
                               <MessageAttachment
                                 key={`${message.id}-file-${i}`}

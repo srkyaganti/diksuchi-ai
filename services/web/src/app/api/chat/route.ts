@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { streamText, convertToModelMessages } from "ai";
+import {
+  streamText,
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+} from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { retrieveDocuments } from "@/lib/python-client";
 import type { SectionResult } from "@/lib/python-client";
@@ -22,24 +27,114 @@ interface ChatRequestBody {
  * Each section is the full parent context around the matched chunks,
  * giving the LLM complete context to avoid hallucination.
  */
-function buildSystemPrompt(sections: SectionResult[]): string {
+function buildSystemPrompt(
+  sections: SectionResult[],
+  uuidToFileId: Record<string, string> = {},
+): string {
   if (sections.length === 0) {
-    return `You are a helpful technical assistant. No relevant sections were found for this query. If you cannot answer from the provided context, say so clearly.`;
+    return `You are a senior technical publications specialist with deep expertise in defence equipment documentation following S1000D standards. Your users are defence personnel — technicians, engineers, and officers — who rely on your answers to perform actual maintenance, repair, troubleshooting, and operational tasks on equipment.
+
+No relevant sections were found in the knowledge base for this query.
+
+INSTRUCTIONS:
+1. Clearly state that no matching documentation was found for the query.
+2. Suggest how the user might refine their question (e.g. different terminology, broader/narrower scope, specific equipment name or part number).
+3. Do NOT guess, fabricate, or provide information from general knowledge. Only information from the retrieved documentation is trustworthy for defence equipment work.`;
   }
 
   const sectionBlocks = sections.map((sec, i) => {
     return `=== SECTION ${i + 1}: ${sec.sectionPath} ===\n\n${sec.content}`;
   });
 
-  return `You are a technical assistant for defence-sector S1000D documentation. You have access to the following sections retrieved from the knowledge base. These are safety-critical technical manuals -- pay special attention to any warnings, cautions, or safety information.
+  // Collect resolved image URLs across all sections
+  const imageRefs: string[] = [];
+  const seenImages = new Set<string>();
+  for (const sec of sections) {
+    const fileId = uuidToFileId[sec.documentUuid];
+    if (!fileId || !sec.images) continue;
+    for (const img of sec.images) {
+      const key = `${fileId}/${img}`;
+      if (seenImages.has(key)) continue;
+      seenImages.add(key);
+      imageRefs.push(`- ![${img}](/api/files/${fileId}/images/${img})`);
+    }
+  }
+
+  let prompt = `You are a senior technical publications specialist with deep expertise in defence equipment documentation following S1000D standards. Your users are defence personnel — technicians, engineers, and officers — who rely on your answers to perform actual maintenance, repair, troubleshooting, and operational tasks on equipment. Your responses must be detailed enough to directly guide hands-on work.
+
+RETRIEVED DOCUMENTATION:
+The following sections have been retrieved from the S1000D knowledge base. This is your ONLY source of truth.
 
 ${sectionBlocks.join("\n\n")}
 
-INSTRUCTIONS:
-- Answer the user's question accurately based ONLY on the sections above.
-- If the information is not sufficient to answer, say so clearly -- do NOT guess or fabricate information.
-- When citing information, reference the section path (e.g. "According to [Section Path]...").
-- Preserve any warnings, cautions, or safety notes from the source material.`;
+---
+
+RESPONSE RULES (follow in order of priority):
+
+## 1. SAFETY FIRST
+- All WARNINGS, CAUTIONS, and NOTES from the source material MUST be included in your response. Never omit them.
+- Place each warning or caution BEFORE the step or information it applies to, not after. A technician must read the warning before performing the action.
+- Format safety information prominently:
+  - **WARNING:** (risk of injury or death)
+  - **CAUTION:** (risk of equipment damage)
+  - **NOTE:** (important supplementary information)
+
+## 2. COMPLETENESS — DO NOT SUMMARIZE
+- Your users perform real work based on your answers. Provide COMPLETE, VERBOSE, DETAILED responses.
+- Include every relevant detail from the source sections: all steps, all specifications, all conditions, all notes.
+- Do NOT shorten, abbreviate, paraphrase, or omit steps. Reproduce procedural content fully.
+- If a procedure has 20 steps, list all 20 steps. If a description spans multiple paragraphs, include the full description.
+- When specifications are provided (torque values, pressures, tolerances, fluid capacities, part numbers, NSNs), reproduce them EXACTLY as written — do not round, convert, or approximate.
+
+## 3. STRUCTURE YOUR RESPONSE BASED ON QUERY TYPE
+Detect the nature of the user's question and structure accordingly:
+
+**For procedural questions** (how to repair, replace, install, remove, service, inspect):
+- List prerequisites (tools, parts, materials, conditions) if mentioned in the source
+- Provide numbered step-by-step instructions in the exact order from the source
+- Include all sub-steps
+- Note any inspection criteria or acceptance standards
+- Include post-procedure checks if documented
+
+**For descriptive questions** (what is, how does it work, describe the system):
+- Provide the full technical description from the source
+- Include operating principles, component functions, and system relationships
+- Include all specifications, parameters, and performance data
+
+**For fault isolation / troubleshooting questions** (what's wrong, why does, diagnose):
+- Present symptoms and probable causes as documented
+- Provide fault isolation steps in order
+- Include test procedures and expected readings
+- List corrective actions for each identified fault
+
+## 4. CITATIONS AND TRACEABILITY
+- Reference the section path when presenting information (e.g. "According to **[Section Path]**...").
+- When information comes from multiple sections, cite each one where relevant.
+- This allows the user to locate and verify the original source material.
+
+## 5. ACCURACY — NEVER FABRICATE
+- Answer based ONLY on the retrieved sections above. This is non-negotiable.
+- NEVER invent part numbers, NSNs, torque values, specifications, procedures, or any technical data.
+- If the retrieved sections contain only partial information, provide what is available and explicitly state what is missing (e.g. "The source documentation does not specify the torque value for this fastener.").
+- If the retrieved information is insufficient to answer the question, say so clearly and suggest what documentation the user might need.
+
+## 6. LANGUAGE
+- Respond in the same language the user writes in.
+- Use clear, direct technical language. Prefer active voice.
+- Use standard technical terminology consistent with the source material.`;
+
+  if (imageRefs.length > 0) {
+    prompt += `
+
+## 7. IMAGES AND FIGURES
+The following images were extracted from the source documents. Include them in your response at the point where they are most relevant (e.g. near the step or description they illustrate). Use the exact markdown image syntax provided.
+
+${imageRefs.join("\n")}
+
+When referencing an image, briefly describe what it shows (e.g. "The following figure shows the location of the hydraulic pump:"). Place images inline within your response, not grouped at the end.`;
+  }
+
+  return prompt;
 }
 
 function extractTextContent(parts: any[]): string {
@@ -163,7 +258,18 @@ export async function POST(request: NextRequest) {
       console.error("Retrieval failed, proceeding with empty context:", err);
     }
 
-    const systemPrompt = buildSystemPrompt(sections);
+    // Resolve document UUIDs to file IDs for image URL construction
+    const docUuids = [...new Set(sections.map((s) => s.documentUuid))];
+    const uuidToFileId: Record<string, string> = {};
+    if (docUuids.length > 0) {
+      const files = await prisma.file.findMany({
+        where: { uuid: { in: docUuids } },
+        select: { id: true, uuid: true },
+      });
+      for (const f of files) uuidToFileId[f.uuid] = f.id;
+    }
+
+    const systemPrompt = buildSystemPrompt(sections, uuidToFileId);
 
     const sectionPaths = sections.map((s) => s.sectionPath);
 
@@ -181,55 +287,97 @@ export async function POST(request: NextRequest) {
 
     const modelMessages = convertToModelMessages(messages);
 
-    const result = streamText({
-      model: llmService(modelName),
-      system: systemPrompt,
-      messages: modelMessages,
-      temperature: 0.0,
-      onFinish: async ({ text, toolCalls, toolResults }) => {
-        if (!session?.id) {
-          console.error("Cannot save assistant message: session ID is missing");
-          return;
-        }
-        
-        try {
-          const parts: any[] = [];
+    // Collect unique document images to stream as file parts
+    const imageParts: Array<{
+      type: "file";
+      url: string;
+      mediaType: string;
+      filename: string;
+    }> = [];
+    const seenImages = new Set<string>();
+    for (const section of sections) {
+      const fileId = uuidToFileId[section.documentUuid];
+      if (!fileId || !section.images) continue;
+      for (const imgFile of section.images) {
+        const key = `${fileId}/${imgFile}`;
+        if (seenImages.has(key)) continue;
+        seenImages.add(key);
+        imageParts.push({
+          type: "file",
+          url: `/api/files/${fileId}/images/${imgFile}`,
+          mediaType: "image/png",
+          filename: imgFile,
+        });
+      }
+    }
 
-          if (toolCalls && toolCalls.length > 0) {
-            toolCalls.forEach((tc, i) => {
-              const tcAny = tc as any;
-              parts.push({
-                type: `tool-${tc.toolName}` as any,
-                input: tcAny.args,
-                output: toolResults?.[i],
-                state: toolResults?.[i] ? "output-available" : "pending",
+    const stream = createUIMessageStream({
+      generateId: () => nanoid(),
+      execute: async ({ writer }) => {
+        // Write document images as file parts before text
+        for (const imgPart of imageParts) {
+          writer.write(imgPart);
+        }
+
+        // Stream LLM response and merge into the same message
+        const result = streamText({
+          model: llmService(modelName),
+          system: systemPrompt,
+          messages: modelMessages,
+          temperature: 0.0,
+          onFinish: async ({ text, toolCalls, toolResults }) => {
+            if (!session?.id) {
+              console.error(
+                "Cannot save assistant message: session ID is missing",
+              );
+              return;
+            }
+
+            try {
+              const parts: any[] = [];
+
+              // Persist image parts
+              for (const imgPart of imageParts) {
+                parts.push(imgPart);
+              }
+
+              if (toolCalls && toolCalls.length > 0) {
+                toolCalls.forEach((tc, i) => {
+                  const tcAny = tc as any;
+                  parts.push({
+                    type: `tool-${tc.toolName}` as any,
+                    input: tcAny.args,
+                    output: toolResults?.[i],
+                    state: toolResults?.[i] ? "output-available" : "pending",
+                  });
+                });
+              }
+
+              if (text) {
+                parts.push({ type: "text", text });
+              }
+
+              await prisma.chatMessage.create({
+                data: {
+                  sessionId: session.id,
+                  role: "assistant",
+                  content: text,
+                  parts:
+                    parts.length > 0
+                      ? JSON.parse(JSON.stringify(parts))
+                      : undefined,
+                  sources: sectionPaths,
+                },
               });
-            });
-          }
+              console.log(`Saved assistant message to session ${session.id}`);
+            } catch (error) {
+              console.error("Failed to save assistant message:", error);
+            }
+          },
+        });
 
-          if (text) {
-            parts.push({ type: "text", text });
-          }
-
-          await prisma.chatMessage.create({
-            data: {
-              sessionId: session.id,
-              role: "assistant",
-              content: text,
-              parts: parts.length > 0 ? JSON.parse(JSON.stringify(parts)) : undefined,
-              sources: sectionPaths,
-            },
-          });
-          console.log(`Saved assistant message to session ${session.id}`);
-        } catch (error) {
-          console.error("Failed to save assistant message:", error);
-        }
+        writer.merge(result.toUIMessageStream());
       },
-    });
-
-    return result.toUIMessageStreamResponse({
-      originalMessages: messages,
-      generateMessageId: () => nanoid(),
       onError: (error) => {
         console.error("Stream error:", error);
         if (error == null) return "An unknown error occurred";
@@ -238,6 +386,8 @@ export async function POST(request: NextRequest) {
         return JSON.stringify(error);
       },
     });
+
+    return createUIMessageStreamResponse({ stream });
   } catch (error) {
     console.error("Chat API error:", error);
     const errorMessage =

@@ -41,6 +41,7 @@ export interface SectionResult {
   sectionId: string;
   documentUuid: string;
   score: number;
+  images: string[];
 }
 
 export interface RetrieveResponse {

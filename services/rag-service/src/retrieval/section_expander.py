@@ -10,7 +10,7 @@ reducing hallucination for technical defence documents.
 import logging
 from typing import Dict, List
 
-from src.storage.document_store import get_markdown, get_section_map
+from src.storage.document_store import get_markdown, get_section_map, list_images
 from src.ingestion.document_mapper import find_section_by_id, get_section_text
 
 logger = logging.getLogger(__name__)
@@ -80,6 +80,17 @@ def expand_to_sections(
             "document_uuid": doc_uuid,
             "score": result.get("rerank_score", result.get("score", 0)),
         }
+
+    # Attach image filenames for each document (cached per UUID)
+    doc_images_cache: Dict[str, list] = {}
+    for section in seen_sections.values():
+        doc_uuid = section["document_uuid"]
+        if doc_uuid not in doc_images_cache:
+            try:
+                doc_images_cache[doc_uuid] = list_images(doc_uuid)
+            except Exception:
+                doc_images_cache[doc_uuid] = []
+        section["images"] = doc_images_cache[doc_uuid]
 
     sections = sorted(
         seen_sections.values(), key=lambda s: s["score"], reverse=True
