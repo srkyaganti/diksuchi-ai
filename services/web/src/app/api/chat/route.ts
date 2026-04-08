@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getActiveOrganizationId } from "@/lib/org-context";
 import {
   streamText,
   convertToModelMessages,
@@ -175,6 +176,7 @@ export async function POST(request: NextRequest) {
     }
 
     const user = authSession.user as any;
+    const activeOrgId = await getActiveOrganizationId(authSession);
 
     const collection = await prisma.collection.findFirst({
       where: { id: collectionId },
@@ -189,7 +191,7 @@ export async function POST(request: NextRequest) {
 
     if (
       !user.isSuperAdmin &&
-      collection.organizationId !== authSession.session?.activeOrganizationId
+      collection.organizationId !== activeOrgId
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -217,7 +219,7 @@ export async function POST(request: NextRequest) {
 
       if (
         !user.isSuperAdmin &&
-        session.organizationId !== authSession.session?.activeOrganizationId
+        session.organizationId !== activeOrgId
       ) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
@@ -285,7 +287,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const modelMessages = convertToModelMessages(messages);
+    // Strip document-image file parts from history before converting to model
+    // messages — they are UI-only references (/api/files/…) that the LLM
+    // provider cannot resolve and would cause the stream to error.
+    const cleanedMessages: UIMessage[] = messages.map((msg) => {
+      if (msg.role !== "assistant" || !msg.parts) return msg;
+      return {
+        ...msg,
+        parts: msg.parts.filter(
+          (p) => p.type !== "file",
+        ),
+      };
+    });
+    const modelMessages = convertToModelMessages(cleanedMessages);
 
     // Collect unique document images to stream as file parts
     const imageParts: Array<{
@@ -315,8 +329,13 @@ export async function POST(request: NextRequest) {
       generateId: () => nanoid(),
       execute: async ({ writer }) => {
         // Write document images as file parts before text
+        // Note: stream chunk schema is strict — only { type, url, mediaType } allowed
         for (const imgPart of imageParts) {
-          writer.write(imgPart);
+          writer.write({
+            type: imgPart.type,
+            url: imgPart.url,
+            mediaType: imgPart.mediaType,
+          });
         }
 
         // Stream LLM response and merge into the same message

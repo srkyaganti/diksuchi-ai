@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getUserRoleInOrg } from "@/lib/org-context";
+import { getActiveOrganizationId, getUserRoleInOrg } from "@/lib/org-context";
 
 /**
  * GET /api/chat/sessions - List user's chat sessions
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const user = authSession.user as any;
-    const activeOrgId = authSession.session?.activeOrganizationId;
+    const activeOrgId = await getActiveOrganizationId(authSession);
 
     // Require active organization for non-super admins
     if (!activeOrgId && !user.isSuperAdmin) {

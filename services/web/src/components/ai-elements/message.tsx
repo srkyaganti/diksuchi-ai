@@ -308,7 +308,15 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
 const safeRehypePlugins = Object.entries(defaultRehypePlugins)
   .filter(([key]) => key !== "raw")
-  .map(([, plugin]) => plugin);
+  .map(([key, plugin]) => {
+    // rehype-harden needs a defaultOrigin to resolve relative URLs like /api/files/...
+    // Without it, all relative-path images are blocked as "[Image blocked: ...]"
+    if (key === "harden" && Array.isArray(plugin)) {
+      const [fn, opts] = plugin;
+      return [fn, { ...opts, defaultOrigin: typeof window !== "undefined" ? window.location.origin : "http://localhost:3000" }] as const;
+    }
+    return plugin;
+  }) as Parameters<typeof Streamdown>[0]["rehypePlugins"] & unknown[];
 
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (

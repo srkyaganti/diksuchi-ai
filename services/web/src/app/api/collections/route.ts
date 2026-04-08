@@ -24,10 +24,6 @@ export async function GET(request: NextRequest) {
     const user = session.user as any;
     const activeOrgId = await getActiveOrganizationId(session);
 
-    console.log("=== GET /api/collections DEBUG ===");
-    console.log("User:", user.email, "| Super Admin:", user.isSuperAdmin);
-    console.log("Active Org ID:", activeOrgId);
-
     // Require active organization for non-super admins
     if (!activeOrgId && !user.isSuperAdmin) {
       return NextResponse.json(
@@ -36,9 +32,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Super admins see all collections, regular users see only their org's collections
+    // Filter by active organization (super admins included when inside an org context)
     const collections = await prisma.collection.findMany({
-      where: user.isSuperAdmin ? {} : { organizationId: activeOrgId || undefined },
+      where: activeOrgId ? { organizationId: activeOrgId } : user.isSuperAdmin ? {} : {},
       include: {
         _count: {
           select: {

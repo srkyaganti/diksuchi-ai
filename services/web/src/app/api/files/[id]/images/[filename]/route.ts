@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getActiveOrganizationId } from "@/lib/org-context";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
@@ -56,10 +57,10 @@ export async function GET(
     }
 
     const user = session.user as any;
+    const activeOrgId = await getActiveOrganizationId(session);
     if (
       !user.isSuperAdmin &&
-      file.collection.organizationId !==
-        session.session?.activeOrganizationId
+      file.collection.organizationId !== activeOrgId
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
