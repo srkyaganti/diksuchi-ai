@@ -42,6 +42,7 @@ export interface SectionResult {
   documentUuid: string;
   score: number;
   images: string[];
+  imageCaptions: Record<string, string>;
 }
 
 export interface RetrieveResponse {

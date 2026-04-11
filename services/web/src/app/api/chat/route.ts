@@ -47,7 +47,7 @@ INSTRUCTIONS:
     return `=== SECTION ${i + 1}: ${sec.sectionPath} ===\n\n${sec.content}`;
   });
 
-  // Collect resolved image URLs across all sections
+  // Collect resolved image URLs with captions across all sections
   const imageRefs: string[] = [];
   const seenImages = new Set<string>();
   for (const sec of sections) {
@@ -57,7 +57,10 @@ INSTRUCTIONS:
       const key = `${fileId}/${img}`;
       if (seenImages.has(key)) continue;
       seenImages.add(key);
-      imageRefs.push(`- ![${img}](/api/files/${fileId}/images/${img})`);
+      const caption = sec.imageCaptions?.[img] || img;
+      imageRefs.push(
+        `- ![${caption}](/api/files/${fileId}/images/${img}) — ${caption} (from **${sec.sectionPath}**)`,
+      );
     }
   }
 
@@ -128,11 +131,11 @@ Detect the nature of the user's question and structure accordingly:
     prompt += `
 
 ## 7. IMAGES AND FIGURES
-The following images were extracted from the source documents. Include them in your response at the point where they are most relevant (e.g. near the step or description they illustrate). Use the exact markdown image syntax provided.
+The following images were extracted from the source documents with descriptions of their content. Include them in your response ONLY where they are relevant to the user's question. Use the exact markdown image syntax provided.
 
 ${imageRefs.join("\n")}
 
-When referencing an image, briefly describe what it shows (e.g. "The following figure shows the location of the hydraulic pump:"). Place images inline within your response, not grouped at the end.`;
+When including an image, use the provided description to introduce it naturally (e.g. "The following figure shows the disc brake assembly:"). Place images inline within your response near the relevant step or description, not grouped at the end.`;
   }
 
   return prompt;

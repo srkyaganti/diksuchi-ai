@@ -24,8 +24,9 @@ from redis import Redis
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.ingestion.docling_converter import convert_pdf
-from src.ingestion.document_mapper import build_section_map
+from src.ingestion.document_mapper import build_section_map, map_images_to_sections
 from src.ingestion.chunker import chunk_document
+from src.ingestion.image_captioner import caption_images
 from src.storage.document_store import save_document
 from src.storage.vector_store import VectorStore
 from src.storage.bm25_store import BM25Store
@@ -161,13 +162,40 @@ def process_document_job(job_data: Dict[str, Any]):
         # --- Step 1: Docling conversion ---
         update_job_progress(10, "Running Docling PDF conversion")
         result = convert_pdf(file_path)
-        update_job_progress(40, "Docling conversion complete")
+        update_job_progress(35, "Docling conversion complete")
 
         # --- Step 2: Build section map ---
-        update_job_progress(45, "Building section map")
+        update_job_progress(38, "Building section map")
         section_map = build_section_map(result.markdown)
 
-        # --- Step 3: Store markdown + section map + images ---
+        # --- Step 2b: Map images to sections ---
+        update_job_progress(40, "Mapping images to sections")
+        image_section_ids = map_images_to_sections(
+            result.markdown, section_map, result.image_info,
+        )
+
+        # --- Step 2c: Caption images ---
+        update_job_progress(42, "Captioning images")
+        captions = caption_images(result.images, result.image_info)
+
+        # --- Step 2d: Build image_map ---
+        image_map = {"images": []}
+        for filename, info in result.image_info.items():
+            caption = captions.get(filename, "")
+            caption_source = "docling" if info.docling_caption else (
+                "fallback" if caption.startswith("Image from section:") else "vision"
+            )
+            image_map["images"].append({
+                "filename": filename,
+                "image_type": info.image_type,
+                "section_id": image_section_ids.get(filename, ""),
+                "section_title": info.section_title,
+                "caption": caption,
+                "caption_source": caption_source,
+            })
+        update_job_progress(48, "Image metadata built")
+
+        # --- Step 3: Store markdown + section map + images + image_map ---
         update_job_progress(50, "Saving document to storage")
         save_document(
             uuid=file_uuid,
@@ -175,15 +203,17 @@ def process_document_job(job_data: Dict[str, Any]):
             images=result.images,
             section_map=section_map,
             document_id=file_uuid,
+            image_map=image_map,
         )
 
-        # --- Step 4: Chunk by sections ---
+        # --- Step 4: Chunk by sections (with image captions) ---
         update_job_progress(60, "Chunking document by sections")
         chunks = chunk_document(
             markdown=result.markdown,
             section_map=section_map,
             document_uuid=file_uuid,
             collection_id=collection_id,
+            image_map=image_map,
         )
 
         if not chunks:

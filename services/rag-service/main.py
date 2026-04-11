@@ -15,7 +15,7 @@ import os
 import sys
 import logging
 import time
-from typing import List, Optional
+from typing import Dict, List, Optional
 from contextlib import asynccontextmanager
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -175,6 +175,7 @@ class SectionResult(BaseModel):
     documentUuid: str
     score: float
     images: List[str] = []
+    imageCaptions: Dict[str, str] = {}
 
 
 class RetrieveResponse(BaseModel):
@@ -345,6 +346,7 @@ async def retrieve(req: RetrieveRequest):
                 documentUuid=s["document_uuid"],
                 score=s["score"],
                 images=s.get("images", []),
+                imageCaptions=s.get("image_captions", {}),
             )
             for s in sections
         ],

@@ -9,7 +9,7 @@ The section map enables:
 
 import logging
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -136,4 +136,96 @@ def find_section_by_id(section_map: dict, section_id: str) -> Optional[dict]:
     for sec in flatten_sections(section_map):
         if sec["id"] == section_id:
             return sec
+    return None
+
+
+def map_images_to_sections(
+    markdown: str,
+    section_map: dict,
+    image_info: dict,
+) -> Dict[str, str]:
+    """
+    Map image filenames to section IDs using ``<!-- image -->`` markers
+    in the markdown and section line ranges.
+
+    For picture images: uses 1:1 correspondence between ``<!-- image -->``
+    marker order and picture extraction order.
+
+    For table images: matches by section_title from ImageInfo against
+    section titles in the map.
+
+    Args:
+        markdown: The full markdown text from Docling.
+        section_map: Hierarchical section map from build_section_map().
+        image_info: Dict of filename -> ImageInfo from DoclingResult.
+
+    Returns:
+        Dict mapping image filename -> section_id.
+    """
+    flat = flatten_sections(section_map)
+    result: Dict[str, str] = {}
+
+    if not flat:
+        return result
+
+    def _find_section_for_line(line_no: int) -> Optional[str]:
+        for sec in flat:
+            if sec["start_line"] <= line_no <= sec["end_line"]:
+                return sec["id"]
+        return flat[-1]["id"] if flat else None
+
+    # Collect <!-- image --> marker line numbers
+    lines = markdown.split("\n")
+    marker_lines = [
+        i for i, line in enumerate(lines)
+        if line.strip() == "<!-- image -->"
+    ]
+
+    # Build ordered list of picture filenames (picture_1, picture_2, ...)
+    picture_filenames = sorted(
+        [fn for fn, info in image_info.items() if info.image_type == "picture"],
+        key=lambda fn: int(fn.split("_")[1].split(".")[0]),
+    )
+
+    # Map pictures via marker positions (1:1 correspondence)
+    for idx, filename in enumerate(picture_filenames):
+        if idx < len(marker_lines):
+            section_id = _find_section_for_line(marker_lines[idx])
+            if section_id:
+                result[filename] = section_id
+        else:
+            # Fallback: match by section title
+            info = image_info[filename]
+            matched = _match_by_title(flat, info.section_title)
+            if matched:
+                result[filename] = matched
+
+    # Map table images by section title matching
+    table_filenames = [
+        fn for fn, info in image_info.items() if info.image_type == "table"
+    ]
+    for filename in table_filenames:
+        info = image_info[filename]
+        matched = _match_by_title(flat, info.section_title)
+        if matched:
+            result[filename] = matched
+
+    logger.info(
+        f"Mapped {len(result)}/{len(image_info)} images to sections"
+    )
+    return result
+
+
+def _match_by_title(flat_sections: List[dict], title: str) -> Optional[str]:
+    """Find a section whose title matches the given title."""
+    if not title:
+        return None
+    title_lower = title.lower().strip()
+    for sec in flat_sections:
+        if sec["title"].lower().strip() == title_lower:
+            return sec["id"]
+    # Partial match fallback
+    for sec in flat_sections:
+        if title_lower in sec["title"].lower() or sec["title"].lower() in title_lower:
+            return sec["id"]
     return None

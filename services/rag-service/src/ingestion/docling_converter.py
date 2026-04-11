@@ -20,11 +20,22 @@ from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import ThreadedPdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.pipeline.threaded_standard_pdf_pipeline import ThreadedStandardPdfPipeline
-from docling_core.types.doc import PictureItem, TableItem
+from docling_core.types.doc import PictureItem, SectionHeaderItem, TableItem
 
 logger = logging.getLogger(__name__)
 
 IMAGE_RESOLUTION_SCALE = 2.0
+
+
+@dataclass
+class ImageInfo:
+    """Metadata for a single extracted image."""
+
+    filename: str           # e.g. "picture_1.png"
+    image_type: str         # "picture" or "table"
+    section_title: str      # title of nearest preceding heading
+    section_level: int      # heading level (1-6)
+    docling_caption: str    # from caption_text(), may be ""
 
 
 @dataclass
@@ -33,6 +44,7 @@ class DoclingResult:
 
     markdown: str
     images: Dict[str, bytes] = field(default_factory=dict)
+    image_info: Dict[str, ImageInfo] = field(default_factory=dict)
 
 
 def _detect_device() -> AcceleratorDevice:
@@ -109,11 +121,19 @@ def convert_pdf(pdf_path: str) -> DoclingResult:
     markdown = conv_result.document.export_to_markdown()
 
     images: Dict[str, bytes] = {}
+    image_info: Dict[str, ImageInfo] = {}
     picture_counter = 0
     table_counter = 0
 
+    current_section_title = "Document"
+    current_section_level = 1
+
     for element, _level in conv_result.document.iterate_items():
-        if isinstance(element, PictureItem):
+        if isinstance(element, SectionHeaderItem):
+            current_section_title = element.text or "Untitled"
+            current_section_level = getattr(element, "level", 1) or 1
+
+        elif isinstance(element, PictureItem):
             picture_counter += 1
             img = element.get_image(conv_result.document)
             if img is not None:
@@ -121,6 +141,20 @@ def convert_pdf(pdf_path: str) -> DoclingResult:
                 img.save(buf, format="PNG")
                 filename = f"picture_{picture_counter}.png"
                 images[filename] = buf.getvalue()
+
+                caption = ""
+                try:
+                    caption = element.caption_text(conv_result.document) or ""
+                except Exception:
+                    pass
+
+                image_info[filename] = ImageInfo(
+                    filename=filename,
+                    image_type="picture",
+                    section_title=current_section_title,
+                    section_level=current_section_level,
+                    docling_caption=caption,
+                )
 
         elif isinstance(element, TableItem):
             table_counter += 1
@@ -131,9 +165,23 @@ def convert_pdf(pdf_path: str) -> DoclingResult:
                 filename = f"table_{table_counter}.png"
                 images[filename] = buf.getvalue()
 
+                caption = ""
+                try:
+                    caption = element.caption_text(conv_result.document) or ""
+                except Exception:
+                    pass
+
+                image_info[filename] = ImageInfo(
+                    filename=filename,
+                    image_type="table",
+                    section_title=current_section_title,
+                    section_level=current_section_level,
+                    docling_caption=caption,
+                )
+
     logger.info(
         f"Extracted {picture_counter} picture(s) and {table_counter} table image(s) "
         f"from {path.name}"
     )
 
-    return DoclingResult(markdown=markdown, images=images)
+    return DoclingResult(markdown=markdown, images=images, image_info=image_info)

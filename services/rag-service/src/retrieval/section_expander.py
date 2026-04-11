@@ -10,7 +10,7 @@ reducing hallucination for technical defence documents.
 import logging
 from typing import Dict, List
 
-from src.storage.document_store import get_markdown, get_section_map, list_images
+from src.storage.document_store import get_markdown, get_section_map, get_image_map, list_images
 from src.ingestion.document_mapper import find_section_by_id, get_section_text
 
 logger = logging.getLogger(__name__)
@@ -81,16 +81,29 @@ def expand_to_sections(
             "score": result.get("rerank_score", result.get("score", 0)),
         }
 
-    # Attach image filenames for each document (cached per UUID)
-    doc_images_cache: Dict[str, list] = {}
+    # Attach section-specific images and captions (cached per UUID)
+    doc_image_maps: Dict[str, dict] = {}
     for section in seen_sections.values():
         doc_uuid = section["document_uuid"]
-        if doc_uuid not in doc_images_cache:
+        section_id = section["section_id"]
+
+        if doc_uuid not in doc_image_maps:
             try:
-                doc_images_cache[doc_uuid] = list_images(doc_uuid)
+                doc_image_maps[doc_uuid] = get_image_map(doc_uuid)
             except Exception:
-                doc_images_cache[doc_uuid] = []
-        section["images"] = doc_images_cache[doc_uuid]
+                doc_image_maps[doc_uuid] = {}
+
+        img_map = doc_image_maps[doc_uuid]
+        section_images = [
+            entry for entry in img_map.get("images", [])
+            if entry.get("section_id") == section_id
+        ]
+
+        section["images"] = [img["filename"] for img in section_images]
+        section["image_captions"] = {
+            img["filename"]: img.get("caption", "")
+            for img in section_images
+        }
 
     sections = sorted(
         seen_sections.values(), key=lambda s: s["score"], reverse=True

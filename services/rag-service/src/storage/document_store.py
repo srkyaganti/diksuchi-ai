@@ -6,6 +6,7 @@ Manages the on-disk storage layout for processed documents:
     storage/{uuid}/
         document.md        # Markdown content from Docling
         section_map.json   # Hierarchical section map for retrieval
+        image_map.json     # Image metadata (section mapping, captions)
         images/
             picture_1.png
             ...
@@ -38,12 +39,17 @@ def _images_dir(uuid: str) -> Path:
     return _doc_dir(uuid) / "images"
 
 
+def _image_map_path(uuid: str) -> Path:
+    return _doc_dir(uuid) / "image_map.json"
+
+
 def save_document(
     uuid: str,
     markdown: str,
     images: Dict[str, bytes],
     section_map: Optional[dict] = None,
     document_id: Optional[str] = None,
+    image_map: Optional[dict] = None,
 ) -> Path:
     """
     Persist a processed document to disk.
@@ -54,6 +60,7 @@ def save_document(
         images: Mapping of filename -> PNG bytes.
         section_map: Hierarchical section map (from document_mapper).
         document_id: Optional ID stored in section_map for traceability.
+        image_map: Image metadata with section mappings and captions.
 
     Returns:
         Path to the created document directory.
@@ -73,6 +80,12 @@ def save_document(
         with sm_path.open("w", encoding="utf-8") as fp:
             json.dump(section_map, fp, ensure_ascii=False, indent=2)
         logger.info(f"Saved section_map.json for {uuid}")
+
+    if image_map is not None:
+        im_path = _image_map_path(uuid)
+        with im_path.open("w", encoding="utf-8") as fp:
+            json.dump(image_map, fp, ensure_ascii=False, indent=2)
+        logger.info(f"Saved image_map.json for {uuid}")
 
     for filename, data in images.items():
         img_path = images_dir / filename
@@ -118,6 +131,24 @@ def list_images(uuid: str) -> List[str]:
     if not images_dir.exists():
         return []
     return sorted(f.name for f in images_dir.iterdir() if f.is_file())
+
+
+def get_image_map(uuid: str) -> dict:
+    """Read the image map. Returns empty dict if not found (backward compat)."""
+    im_path = _image_map_path(uuid)
+    if not im_path.exists():
+        return {}
+    with im_path.open("r", encoding="utf-8") as fp:
+        return json.load(fp)
+
+
+def list_section_images(uuid: str, section_id: str) -> List[dict]:
+    """Return image entries for a specific section."""
+    image_map = get_image_map(uuid)
+    return [
+        entry for entry in image_map.get("images", [])
+        if entry.get("section_id") == section_id
+    ]
 
 
 def document_exists(uuid: str) -> bool:

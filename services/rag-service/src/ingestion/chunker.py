@@ -18,7 +18,7 @@ Strategy:
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import List
+from typing import Dict, List, Optional
 
 from src.ingestion.document_mapper import flatten_sections, get_section_text
 
@@ -69,16 +69,28 @@ def chunk_document(
     section_map: dict,
     document_uuid: str,
     collection_id: str,
+    image_map: Optional[dict] = None,
 ) -> List[Chunk]:
     """
     Chunk a markdown document using its section map.
 
     Returns a list of Chunk objects, each with metadata:
         section_id, section_path, document_uuid, collection_id, chunk_index
+
+    If image_map is provided, image captions are appended to section text
+    so that image content becomes searchable via embeddings and BM25.
     """
     flat = flatten_sections(section_map)
     chunks: List[Chunk] = []
     global_idx = 0
+
+    # Build section_id -> list of image entries lookup
+    section_images: Dict[str, List[dict]] = {}
+    if image_map:
+        for img_entry in image_map.get("images", []):
+            sid = img_entry.get("section_id", "")
+            if sid:
+                section_images.setdefault(sid, []).append(img_entry)
 
     for sec in flat:
         children = sec.get("children", [])
@@ -90,11 +102,28 @@ def chunk_document(
         if not section_text.strip():
             continue
 
+        # Append image captions to make image content searchable
+        images_for_section = section_images.get(sec["id"], [])
+        if images_for_section:
+            caption_lines = []
+            for img in images_for_section:
+                caption = img.get("caption", "")
+                fname = img.get("filename", "")
+                if caption:
+                    caption_lines.append(f"[Image: {fname}] {caption}")
+            if caption_lines:
+                section_text += "\n\n" + "\n".join(caption_lines)
+
+        image_filenames = ",".join(
+            img["filename"] for img in images_for_section
+        ) if images_for_section else ""
+
         base_meta = {
             "section_id": sec["id"],
             "section_path": sec["path"],
             "document_uuid": document_uuid,
             "collection_id": collection_id,
+            "image_filenames": image_filenames,
         }
 
         token_estimate = _estimate_tokens(section_text)
