@@ -8,7 +8,7 @@ prepared-by: "Srikar Yaganti"
 classification: "Internal"
 ---
 
-\newpage
+---
 
 # Table of Contents
 
@@ -70,10 +70,10 @@ classification: "Internal"
     - 11.2 [RAG Service API](#112-rag-service-api)
     - 11.3 [Voice Service API](#113-voice-service-api)
 12. [File & Storage Architecture](#12-file--storage-architecture)
-    - 11.1 [Uploaded File Storage](#111-uploaded-file-storage)
-    - 11.2 [Processed Document Storage](#112-processed-document-storage)
-    - 11.3 [Vector Database Storage](#113-vector-database-storage)
-    - 11.4 [BM25 Index Storage](#114-bm25-index-storage)
+   - 12.1 [Uploaded File Storage](#121-uploaded-file-storage)
+   - 12.2 [Processed Document Storage](#122-processed-document-storage)
+   - 12.3 [Vector Database Storage](#123-vector-database-storage)
+   - 12.4 [BM25 Index Storage](#124-bm25-index-storage)
 13. [Deployment Architecture](#13-deployment-architecture)
     - 13.1 [Development Setup](#131-development-setup)
     - 13.2 [Production Deployment](#132-production-deployment)
@@ -82,7 +82,7 @@ classification: "Internal"
 15. [Configuration Reference](#15-configuration-reference)
 16. [Glossary of Technical Terms](#16-glossary-of-technical-terms)
 
-\newpage
+---
 
 ---
 
@@ -166,7 +166,7 @@ RAG is the core technique that makes Diksuchi-AI accurate. It combines two steps
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    RAG Process                       │
+│                    RAG Process                      │
 │                                                     │
 │  User Question                                      │
 │       │                                             │
@@ -267,10 +267,10 @@ Text-to-Speech converts written text into natural-sounding speech. It involves:
 ```
 ┌────────────────────────────────────────────────────────────────────┐
 │                        USER'S BROWSER                              │
-│  ┌──────────┐  ┌───────────┐  ┌──────────┐  ┌──────────────────┐  │
-│  │ Chat UI  │  │ Data      │  │ PDF      │  │ Voice Controls   │  │
-│  │          │  │ Library   │  │ Viewer   │  │ (Mic + Speaker)  │  │
-│  └────┬─────┘  └─────┬─────┘  └────┬─────┘  └────────┬─────────┘  │
+│  ┌──────────┐  ┌───────────┐  ┌──────────┐  ┌──────────────────┐   │
+│  │ Chat UI  │  │ Data      │  │ PDF      │  │ Voice Controls   │   │
+│  │          │  │ Library   │  │ Viewer   │  │ (Mic + Speaker)  │   │
+│  └────┬─────┘  └─────┬─────┘  └────┬─────┘  └────────┬─────────┘   │
 └───────┼──────────────┼──────────────┼─────────────────┼────────────┘
         │              │              │                 │
         └──────────────┴──────────────┴─────────────────┘
@@ -278,13 +278,13 @@ Text-to-Speech converts written text into natural-sounding speech. It involves:
                     HTTP / WebSocket
                               │
 ┌─────────────────────────────▼──────────────────────────────────────┐
-│                    WEB APPLICATION (Port 3000)                      │
-│                    Next.js 16 + React 19                            │
-│  ┌──────────┐  ┌───────────┐  ┌──────────┐  ┌──────────────────┐  │
-│  │ API      │  │ Auth      │  │ Prisma   │  │ Voice API        │  │
-│  │ Routes   │  │ (Better   │  │ ORM      │  │ Proxy Routes     │  │
-│  │          │  │  Auth)    │  │          │  │                  │  │
-│  └────┬─────┘  └───────────┘  └────┬─────┘  └────────┬─────────┘  │
+│                    WEB APPLICATION (Port 3000)                     │
+│                    Next.js 16 + React 19                           │
+│  ┌──────────┐  ┌───────────┐  ┌──────────┐  ┌──────────────────┐   │
+│  │ API      │  │ Auth      │  │ Prisma   │  │ Voice API        │   │
+│  │ Routes   │  │ (Better   │  │ ORM      │  │ Proxy Routes     │   │
+│  │          │  │  Auth)    │  │          │  │                  │   │
+│  └────┬─────┘  └───────────┘  └────┬─────┘  └────────┬─────────┘   │
 └───────┼─────────────────────────────┼─────────────────┼────────────┘
         │                             │                 │
         │ HTTP                        │ SQL             │ HTTP
@@ -292,16 +292,16 @@ Text-to-Speech converts written text into natural-sounding speech. It involves:
 ┌───────▼──────────┐  ┌──────────────▼──────┐  ┌───────▼───────────┐
 │  RAG SERVICE     │  │  POSTGRESQL 16      │  │  VOICE SERVICE    │
 │  (Port 5001)     │  │  (Port 5432)        │  │  (Port 8000)      │
-│  FastAPI+Python  │  │                      │  │  FastAPI+Python   │
-│                  │  │  • Users            │  │                    │
+│  FastAPI+Python  │  │                      │  │  FastAPI+Python  │
+│                  │  │  • Users            │  │                   │
 │  • /api/process  │  │  • Organizations    │  │  • /stt/transcribe│
 │  • /api/retrieve │  │  • Collections      │  │  • /tts/generate  │
 │  • /api/jobs     │  │  • Files            │  │  • /tts/languages │
-│                  │  │  • Chat Sessions    │  │                    │
+│                  │  │  • Chat Sessions    │  │                   │
 └───────┬──────────┘  │  • Chat Messages    │  │  Models:          │
-        │             │                      │  │  • Whisper (STT)  │
-   ┌────┴────┐        └──────────────────────┘  │  • ParlerTTS(TTS) │
-   │         │                                   └───────────────────┘
+        │             │                     │  │  • Whisper (STT)  │
+   ┌────┴────┐        └─────────────────────┘  │  • ParlerTTS(TTS) │
+   │         │                                 └───────────────────┘
    ▼         ▼
 ┌────────┐ ┌──────────┐
 │REDIS 8 │ │ ChromaDB │
@@ -312,7 +312,7 @@ Text-to-Speech converts written text into natural-sounding speech. It involves:
 │• Cache │ │• Chunk   │
 └────────┘ │  Store   │
            └──────────┘
-        ┌──────────────┐
+        ┌───────────────┐
         │    OLLAMA     │
         │  (Port 11434) │
         │               │
