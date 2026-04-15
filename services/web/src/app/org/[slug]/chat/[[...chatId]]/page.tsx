@@ -55,13 +55,20 @@ import {
   Sources,
   SourcesTrigger,
   SourcesContent,
-  Source,
 } from "@/components/ai-elements/sources";
 import { CollectionFilesPanel } from "@/components/chat/collection-files-panel";
 import { VoiceInput } from "@/components/chat/voice-input";
 import { VoiceOutput } from "@/components/chat/voice-output";
 import { toast } from "sonner";
-import { CopyIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
+import { CopyIcon, ZoomInIcon, ZoomOutIcon, FileTextIcon, ExternalLinkIcon } from "lucide-react";
+
+interface SourceRef {
+  fileId: string | null;
+  fileName: string;
+  sectionPath: string;
+  pageNo: number | null;
+  documentUuid: string;
+}
 
 function DocumentImage({ src, alt }: { src: string; alt: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -97,21 +104,6 @@ function DocumentImage({ src, alt }: { src: string; alt: string }) {
     </div>
   );
 }
-
-type SourceUrlPartExtended = Extract<
-  UIMessage["parts"][number],
-  { type: "source-url" }
-> & {
-  snippet?: string;
-  relevance?: string;
-};
-
-type SourceDocumentPart = Extract<
-  UIMessage["parts"][number],
-  { type: "source-document" }
->;
-
-type SourcePart = SourceUrlPartExtended | SourceDocumentPart;
 
 function ChatInput({
   collectionId,
@@ -205,7 +197,10 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string>("");
   const [languageCode, setLanguageCode] = useState<string>("en");
   const [loading, setLoading] = useState(true);
+  const [messageSources, setMessageSources] = useState<Record<string, SourceRef[]>>({});
   const justCreatedSessionRef = useRef(false);
+  const sessionIdRef = useRef<string>(sessionId);
+  sessionIdRef.current = sessionId;
 
   // Backward-compat redirect for old ?sessionId= URLs
   useEffect(() => {
@@ -240,13 +235,29 @@ export default function ChatPage() {
       }
       const session = await response.json();
       const formattedMessages: UIMessage[] = session.messages.map(
-        (msg: { id: string; role: string; content: string; parts: unknown }) => ({
+        (msg: { id: string; role: string; content: string; parts: unknown; sources?: unknown }) => ({
           id: msg.id,
           role: msg.role,
           parts: msg.parts || [{ type: "text" as const, text: msg.content }],
         })
       );
       setMessages(formattedMessages);
+
+      // Extract structured sources from assistant messages
+      const sourcesMap: Record<string, SourceRef[]> = {};
+      for (const msg of session.messages) {
+        if (msg.role === "assistant" && msg.sources) {
+          // Handle both old format (string[]) and new format (SourceRef[])
+          if (Array.isArray(msg.sources)) {
+            const first = msg.sources[0];
+            if (first && typeof first === "object" && "fileId" in first) {
+              sourcesMap[msg.id] = msg.sources as SourceRef[];
+            }
+            // Old format (string[]) is ignored — no page numbers available
+          }
+        }
+      }
+      setMessageSources(sourcesMap);
       if (session.collectionId) {
         setCollectionId(session.collectionId);
       }
@@ -267,9 +278,42 @@ export default function ChatPage() {
       console.error("Chat error:", error);
       toast.error("Failed to send message: " + error.message);
     },
+    onFinish: async ({ message: _finishedMessage }) => {
+      // After streaming completes, fetch the session to get structured sources
+      const currentSessionId = sessionIdRef.current;
+      if (currentSessionId) {
+        try {
+          // Small delay to ensure server-side onFinish has saved the message
+          await new Promise((r) => setTimeout(r, 300));
+          const res = await fetch(`/api/chat/sessions/${currentSessionId}`);
+          if (res.ok) {
+            const session = await res.json();
+            const dbMessages = session.messages || [];
+            // Match by position — db messages and UI messages are in the same order
+            const currentMessages = chatMessagesRef.current;
+            const sourcesMap: Record<string, SourceRef[]> = {};
+            for (let i = 0; i < dbMessages.length && i < currentMessages.length; i++) {
+              const dbMsg = dbMessages[i];
+              const uiMsg = currentMessages[i];
+              if (dbMsg.role === "assistant" && dbMsg.sources && Array.isArray(dbMsg.sources)) {
+                const first = dbMsg.sources[0];
+                if (first && typeof first === "object" && "fileId" in first) {
+                  sourcesMap[uiMsg.id] = dbMsg.sources as SourceRef[];
+                }
+              }
+            }
+            setMessageSources((prev) => ({ ...prev, ...sourcesMap }));
+          }
+        } catch {
+          // Sources may not be available immediately, that's OK
+        }
+      }
+    },
   });
 
   const messages = chatMessages;
+  const chatMessagesRef = useRef(chatMessages);
+  chatMessagesRef.current = chatMessages;
 
   const handleCollectionSelect = useCallback(
     (newCollectionId: string, name?: string) => {
@@ -417,53 +461,61 @@ export default function ChatPage() {
               messages.map((message) => (
                 <div key={message.id}>
                   {message.role === "assistant" &&
-                    message.parts &&
                     (() => {
-                      const sourceParts = message.parts.filter(
-                        (part): part is SourcePart =>
-                          part.type === "source-url" ||
-                          part.type === "source-document"
-                      );
-                      if (sourceParts.length === 0) return null;
+                      const structuredSources = messageSources[message.id];
+                      if (!structuredSources || structuredSources.length === 0) return null;
                       return (
                         <Sources className="mb-2">
-                          <SourcesTrigger count={sourceParts.length} />
-                          {sourceParts.map((part, i) => (
-                            <SourcesContent key={`${message.id}-source-${i}`}>
-                              {part.type === "source-url" ? (
-                                <Source
-                                  href={part.url}
-                                  title={part.title}
-                                  className="flex flex-col gap-1"
-                                >
-                                  <span className="font-medium">
-                                    {part.title}
-                                  </span>
-                                  {part.snippet && (
-                                    <span className="text-xs text-muted-foreground line-clamp-2">
-                                      {part.snippet}
-                                    </span>
-                                  )}
-                                  {part.relevance && (
-                                    <span className="text-xs text-blue-600">
-                                      Relevance: {part.relevance}
-                                    </span>
-                                  )}
-                                </Source>
-                              ) : (
-                                <div className="flex flex-col gap-1 rounded-md border p-2">
-                                  <span className="font-medium">
-                                    {part.title}
-                                  </span>
-                                  {part.filename && (
-                                    <span className="text-xs text-muted-foreground">
-                                      {part.filename}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </SourcesContent>
-                          ))}
+                          <SourcesTrigger count={structuredSources.length} />
+                          {structuredSources.map((src, i) => {
+                            const viewerUrl = src.fileId && src.pageNo
+                              ? `/viewer?fileId=${src.fileId}&page=${src.pageNo}&name=${encodeURIComponent(src.fileName)}`
+                              : null;
+                            return (
+                              <SourcesContent key={`${message.id}-source-${i}`}>
+                                {viewerUrl ? (
+                                  <button
+                                    type="button"
+                                    className="flex items-start gap-2 rounded-md border p-2 text-left hover:bg-accent/50 transition-colors w-full"
+                                    onClick={() => window.open(viewerUrl, "_blank")}
+                                  >
+                                    <FileTextIcon className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+                                    <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                                      <span className="font-medium text-xs truncate">
+                                        {src.fileName || "Document"}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground truncate">
+                                        {src.sectionPath}
+                                      </span>
+                                    </div>
+                                    {src.pageNo && (
+                                      <span className="text-[10px] bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded shrink-0">
+                                        Page {src.pageNo}
+                                      </span>
+                                    )}
+                                    <ExternalLinkIcon className="h-3 w-3 shrink-0 text-muted-foreground mt-0.5" />
+                                  </button>
+                                ) : (
+                                  <div className="flex items-start gap-2 rounded-md border p-2">
+                                    <FileTextIcon className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                      <span className="font-medium text-xs truncate">
+                                        {src.fileName || "Document"}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground truncate">
+                                        {src.sectionPath}
+                                      </span>
+                                    </div>
+                                    {src.pageNo && (
+                                      <span className="text-[10px] bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded shrink-0">
+                                        Page {src.pageNo}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </SourcesContent>
+                            );
+                          })}
                         </Sources>
                       );
                     })()}

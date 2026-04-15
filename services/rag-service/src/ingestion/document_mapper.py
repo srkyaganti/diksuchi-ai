@@ -16,9 +16,17 @@ logger = logging.getLogger(__name__)
 HEADER_RE = re.compile(r"^(#{1,6})\s+(.+)$")
 
 
-def build_section_map(markdown: str) -> dict:
+def build_section_map(
+    markdown: str,
+    section_pages: Optional[Dict[str, int]] = None,
+) -> dict:
     """
     Parse markdown text and produce a hierarchical section map.
+
+    Args:
+        markdown: Full markdown text.
+        section_pages: Optional mapping of section title -> PDF page number
+                       from Docling provenance.
 
     Returns:
         {
@@ -30,6 +38,7 @@ def build_section_map(markdown: str) -> dict:
                     "path": "Chapter Title",
                     "start_line": 0,
                     "end_line": 44,
+                    "page_no": 1,
                     "children": [ ... ]
                 },
                 ...
@@ -40,6 +49,7 @@ def build_section_map(markdown: str) -> dict:
     """
     lines = markdown.split("\n")
     total_lines = len(lines)
+    _section_pages = section_pages or {}
 
     raw_sections: List[dict] = []
     section_counter = 0
@@ -56,6 +66,7 @@ def build_section_map(markdown: str) -> dict:
                 "level": level,
                 "start_line": line_idx,
                 "end_line": -1,
+                "page_no": _section_pages.get(title, 0),
                 "children": [],
             })
 

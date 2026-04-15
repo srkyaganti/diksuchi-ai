@@ -89,7 +89,7 @@ model ChatMessage {
   role      String // "user" or "assistant"
   content   String      @db.Text
   parts     Json? // Full UIMessage parts array from AI SDK
-  sources   String[] // Array of fileIds used for context
+  sources   Json?    // Structured source references [{ fileId, fileName, sectionPath, pageNo, documentUuid }]
   createdAt DateTime    @default(now())
 
   @@map("chat_messages")

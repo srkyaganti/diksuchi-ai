@@ -36,6 +36,7 @@ class ImageInfo:
     section_title: str      # title of nearest preceding heading
     section_level: int      # heading level (1-6)
     docling_caption: str    # from caption_text(), may be ""
+    page_no: int = 0        # PDF page number from Docling provenance
 
 
 @dataclass
@@ -45,6 +46,7 @@ class DoclingResult:
     markdown: str
     images: Dict[str, bytes] = field(default_factory=dict)
     image_info: Dict[str, ImageInfo] = field(default_factory=dict)
+    section_pages: Dict[str, int] = field(default_factory=dict)  # section title -> page_no
 
 
 def _detect_device() -> AcceleratorDevice:
@@ -127,11 +129,15 @@ def convert_pdf(pdf_path: str) -> DoclingResult:
 
     current_section_title = "Document"
     current_section_level = 1
+    section_pages: Dict[str, int] = {}
 
     for element, _level in conv_result.document.iterate_items():
         if isinstance(element, SectionHeaderItem):
             current_section_title = element.text or "Untitled"
             current_section_level = getattr(element, "level", 1) or 1
+            # Capture page number from Docling provenance
+            if element.prov:
+                section_pages[current_section_title] = element.prov[0].page_no
 
         elif isinstance(element, PictureItem):
             picture_counter += 1
@@ -148,12 +154,15 @@ def convert_pdf(pdf_path: str) -> DoclingResult:
                 except Exception:
                     pass
 
+                page_no = element.prov[0].page_no if element.prov else 0
+
                 image_info[filename] = ImageInfo(
                     filename=filename,
                     image_type="picture",
                     section_title=current_section_title,
                     section_level=current_section_level,
                     docling_caption=caption,
+                    page_no=page_no,
                 )
 
         elif isinstance(element, TableItem):
@@ -171,12 +180,15 @@ def convert_pdf(pdf_path: str) -> DoclingResult:
                 except Exception:
                     pass
 
+                page_no = element.prov[0].page_no if element.prov else 0
+
                 image_info[filename] = ImageInfo(
                     filename=filename,
                     image_type="table",
                     section_title=current_section_title,
                     section_level=current_section_level,
                     docling_caption=caption,
+                    page_no=page_no,
                 )
 
     logger.info(
@@ -184,4 +196,9 @@ def convert_pdf(pdf_path: str) -> DoclingResult:
         f"from {path.name}"
     )
 
-    return DoclingResult(markdown=markdown, images=images, image_info=image_info)
+    return DoclingResult(
+        markdown=markdown,
+        images=images,
+        image_info=image_info,
+        section_pages=section_pages,
+    )

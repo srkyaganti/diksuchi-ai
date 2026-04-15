@@ -174,6 +174,7 @@ class SectionResult(BaseModel):
     sectionId: str
     documentUuid: str
     score: float
+    pageNo: Optional[int] = None
     images: List[str] = []
     imageCaptions: Dict[str, str] = {}
 
@@ -345,6 +346,7 @@ async def retrieve(req: RetrieveRequest):
                 sectionId=s["section_id"],
                 documentUuid=s["document_uuid"],
                 score=s["score"],
+                pageNo=s.get("page_no"),
                 images=s.get("images", []),
                 imageCaptions=s.get("image_captions", {}),
             )

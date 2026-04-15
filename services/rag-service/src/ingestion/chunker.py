@@ -123,6 +123,7 @@ def chunk_document(
             "section_path": sec["path"],
             "document_uuid": document_uuid,
             "collection_id": collection_id,
+            "page_no": sec.get("page_no", 0),
             "image_filenames": image_filenames,
         }
 

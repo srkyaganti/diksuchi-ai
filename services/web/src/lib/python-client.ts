@@ -41,6 +41,7 @@ export interface SectionResult {
   sectionId: string;
   documentUuid: string;
   score: number;
+  pageNo?: number;
   images: string[];
   imageCaptions: Record<string, string>;
 }

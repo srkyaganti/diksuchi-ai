@@ -78,6 +78,7 @@ def expand_to_sections(
             "section_path": section.get("path", ""),
             "section_id": section_id,
             "document_uuid": doc_uuid,
+            "page_no": section.get("page_no", 0),
             "score": result.get("rerank_score", result.get("score", 0)),
         }
 

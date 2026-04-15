@@ -276,6 +276,34 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = buildSystemPrompt(sections, uuidToFileId);
 
+    // Build structured source references with page numbers
+    const sources = sections.map((s) => ({
+      fileId: uuidToFileId[s.documentUuid] || null,
+      fileName: "",
+      sectionPath: s.sectionPath,
+      pageNo: s.pageNo || null,
+      documentUuid: s.documentUuid,
+    }));
+
+    // Resolve file names for source references
+    const allFileIds = sources
+      .map((s) => s.fileId)
+      .filter(Boolean) as string[];
+    if (allFileIds.length > 0) {
+      const fileRecords = await prisma.file.findMany({
+        where: { id: { in: allFileIds } },
+        select: { id: true, name: true },
+      });
+      const fileIdToName = Object.fromEntries(
+        fileRecords.map((f) => [f.id, f.name]),
+      );
+      for (const src of sources) {
+        if (src.fileId) {
+          src.fileName = fileIdToName[src.fileId] || "";
+        }
+      }
+    }
+
     const sectionPaths = sections.map((s) => s.sectionPath);
 
     const userParts = lastMessage.parts || [{ type: "text" as const, text: queryText }];
@@ -388,7 +416,7 @@ export async function POST(request: NextRequest) {
                     parts.length > 0
                       ? JSON.parse(JSON.stringify(parts))
                       : undefined,
-                  sources: sectionPaths,
+                  sources: sources.length > 0 ? sources : undefined,
                 },
               });
               console.log(`Saved assistant message to session ${session.id}`);

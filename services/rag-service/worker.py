@@ -166,7 +166,7 @@ def process_document_job(job_data: Dict[str, Any]):
 
         # --- Step 2: Build section map ---
         update_job_progress(38, "Building section map")
-        section_map = build_section_map(result.markdown)
+        section_map = build_section_map(result.markdown, result.section_pages)
 
         # --- Step 2b: Map images to sections ---
         update_job_progress(40, "Mapping images to sections")
