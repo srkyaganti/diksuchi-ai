@@ -93,9 +93,10 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 70)
 
     try:
-        redis_conn = Redis(
-            host=RAG_REDIS_HOST, port=RAG_REDIS_PORT, decode_responses=True
-        )
+        # Note: do NOT pass decode_responses=True — RQ stores pickled-bytes
+        # fields in its job hashes and decodes them itself. Forcing UTF-8
+        # decoding here breaks Job.fetch with "byte 0x80 ... invalid start byte".
+        redis_conn = Redis(host=RAG_REDIS_HOST, port=RAG_REDIS_PORT)
         redis_conn.ping()
         logger.info(f"Connected to Redis at {RAG_REDIS_HOST}:{RAG_REDIS_PORT}")
         job_queue = Queue("document-processing", connection=redis_conn)
@@ -159,6 +160,7 @@ class JobStatusResponse(BaseModel):
     jobId: str
     status: str
     progress: Optional[int] = None
+    message: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -275,6 +277,7 @@ async def get_job_status(job_id: str):
             jobId=job.id,
             status=status_map.get(job.get_status(), "unknown"),
             progress=job.meta.get("progress"),
+            message=job.meta.get("message"),
             error=str(job.exc_info) if job.is_failed else None,
         )
 

@@ -176,7 +176,17 @@ def process_document_job(job_data: Dict[str, Any]):
 
         # --- Step 2c: Caption images ---
         update_job_progress(42, "Captioning images")
-        captions = caption_images(result.images, result.image_info)
+        num_images = len(result.image_info)
+
+        def on_image_captioned(done: int, total: int):
+            pct = 42 + int((done / total) * 6)
+            update_job_progress(pct, f"Captioning image {done}/{total}")
+
+        captions = caption_images(
+            result.images,
+            result.image_info,
+            progress_callback=on_image_captioned if num_images > 1 else None,
+        )
 
         # --- Step 2d: Build image_map ---
         image_map = {"images": []}
@@ -221,8 +231,15 @@ def process_document_job(job_data: Dict[str, Any]):
 
         # --- Step 5: Embed chunks -> ChromaDB ---
         update_job_progress(70, "Embedding chunks via Ollama")
+        total_chunks = len(chunks)
+
+        def on_embed_batch(batch_done: int, total_batches: int):
+            chunks_done = min(batch_done * 64, total_chunks)
+            pct = 70 + int((batch_done / total_batches) * 15)
+            update_job_progress(pct, f"Embedding chunks {chunks_done}/{total_chunks}")
+
         vector_store = _get_vector_store()
-        vector_store.add_chunks(collection_id, chunks)
+        vector_store.add_chunks(collection_id, chunks, progress_callback=on_embed_batch)
 
         # --- Step 6: Build BM25 index ---
         update_job_progress(85, "Building BM25 keyword index")

@@ -8,7 +8,7 @@ by SQLite -- no separate service required.
 
 import logging
 import os
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import chromadb
 from chromadb.api.models.Collection import Collection
@@ -49,7 +49,12 @@ class VectorStore:
             embedding_function=self._embedding_fn,
         )
 
-    def add_chunks(self, collection_id: str, chunks: List[Chunk]) -> None:
+    def add_chunks(
+        self,
+        collection_id: str,
+        chunks: List[Chunk],
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+    ) -> None:
         """Upsert a batch of chunks into the collection's vector store."""
         if not chunks:
             return
@@ -61,13 +66,16 @@ class VectorStore:
         metadatas = [c.metadata for c in chunks]
 
         BATCH = 64
-        for start in range(0, len(ids), BATCH):
-            end = start + BATCH
+        num_batches = max(1, (len(ids) + BATCH - 1) // BATCH)
+        for batch_idx, start in enumerate(range(0, len(ids), BATCH)):
+            end = min(start + BATCH, len(ids))
             coll.upsert(
                 ids=ids[start:end],
                 documents=documents[start:end],
                 metadatas=metadatas[start:end],
             )
+            if progress_callback:
+                progress_callback(batch_idx + 1, num_batches)
 
         logger.info(
             f"Upserted {len(chunks)} chunks into ChromaDB "

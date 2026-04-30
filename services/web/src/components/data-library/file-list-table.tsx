@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,11 +34,83 @@ interface File {
 
 interface FileListTableProps {
   files: File[];
+  collectionId: string;
 }
 
-export function FileListTable({ files }: FileListTableProps) {
+interface JobProgress {
+  progress: number;
+  message: string;
+}
+
+const STEP_LABELS: Record<string, string> = {
+  "Starting document processing": "Starting...",
+  "Running Docling PDF conversion": "Converting PDF...",
+  "Docling conversion complete": "PDF converted",
+  "Building section map": "Mapping structure",
+  "Mapping images to sections": "Locating images",
+  "Image metadata built": "Images mapped",
+  "Saving document to storage": "Saving...",
+  "Chunking document by sections": "Splitting into chunks",
+  "Building BM25 keyword index": "Building keyword index",
+  "Document processing completed": "Done!",
+};
+
+function friendlyMessage(raw: string | undefined): string {
+  if (!raw) return "Processing...";
+  if (raw.startsWith("Captioning image") || raw.startsWith("Embedding chunks")) return raw;
+  return STEP_LABELS[raw] ?? raw;
+}
+
+export function FileListTable({ files, collectionId }: FileListTableProps) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState<Record<string, JobProgress>>({});
+  const pollingRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+
+  const stopPollingFile = (fileId: string) => {
+    if (pollingRefs.current[fileId]) {
+      clearInterval(pollingRefs.current[fileId]);
+      delete pollingRefs.current[fileId];
+    }
+  };
+
+  const startPollingFile = (fileId: string) => {
+    if (pollingRefs.current[fileId]) return;
+    const jobId = `${collectionId}-${fileId}`;
+    pollingRefs.current[fileId] = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        setJobProgress((prev) => ({
+          ...prev,
+          [fileId]: {
+            progress: data.progress ?? 0,
+            message: friendlyMessage(data.message),
+          },
+        }));
+
+        if (data.status === "completed" || data.status === "failed") {
+          stopPollingFile(fileId);
+          router.refresh();
+        }
+      } catch {
+        // Ignore transient polling errors
+      }
+    }, 2000);
+  };
+
+  useEffect(() => {
+    files
+      .filter((f) => f.ragStatus === "processing")
+      .forEach((f) => startPollingFile(f.id));
+
+    return () => {
+      Object.keys(pollingRefs.current).forEach(stopPollingFile);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files, collectionId]);
 
   const handleDownload = async (fileId: string, fileName: string) => {
     try {
@@ -133,56 +206,71 @@ export function FileListTable({ files }: FileListTableProps) {
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Size</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead className="min-w-[200px]">Status</TableHead>
             <TableHead>Uploaded</TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {files.map((file) => (
-            <TableRow key={file.id}>
-              <TableCell className="font-medium">{file.name}</TableCell>
-              <TableCell>{formatFileSize(file.fileSize)}</TableCell>
-              <TableCell>
-                <FileStatusBadge
-                  status={file.status as any}
-                  ragStatus={file.ragStatus as any}
-                />
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {formatDate(file.uploadedAt)}
-              </TableCell>
-              <TableCell>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      disabled={deletingId === file.id}
-                    >
-                      <IconDotsVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => handleDownload(file.id, file.name)}
-                    >
-                      <IconDownload className="mr-2 h-4 w-4" />
-                      Download
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDelete(file.id, file.name)}
-                      className="text-destructive"
-                    >
-                      <IconTrash className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
+          {files.map((file) => {
+            const isProcessing = file.ragStatus === "processing";
+            const progress = jobProgress[file.id];
+
+            return (
+              <TableRow key={file.id}>
+                <TableCell className="font-medium">{file.name}</TableCell>
+                <TableCell>{formatFileSize(file.fileSize)}</TableCell>
+                <TableCell>
+                  {isProcessing && progress ? (
+                    <div className="grid gap-1 w-full max-w-[220px]">
+                      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="truncate">{progress.message}</span>
+                        <span className="shrink-0 tabular-nums">{progress.progress}%</span>
+                      </div>
+                      <Progress value={progress.progress} className="h-1.5" />
+                    </div>
+                  ) : (
+                    <FileStatusBadge
+                      status={file.status as any}
+                      ragStatus={file.ragStatus as any}
+                    />
+                  )}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {formatDate(file.uploadedAt)}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        disabled={deletingId === file.id}
+                      >
+                        <IconDotsVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => handleDownload(file.id, file.name)}
+                      >
+                        <IconDownload className="mr-2 h-4 w-4" />
+                        Download
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDelete(file.id, file.name)}
+                        className="text-destructive"
+                      >
+                        <IconTrash className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

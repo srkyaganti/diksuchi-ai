@@ -14,7 +14,7 @@ Caption priority:
 import base64
 import logging
 import os
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 
 import httpx
 
@@ -93,6 +93,7 @@ def caption_image(
 def caption_images(
     images: Dict[str, bytes],
     image_info: Dict[str, ImageInfo],
+    progress_callback: Optional[Callable[[int, int], None]] = None,
 ) -> Dict[str, str]:
     """
     Generate captions for all images, preferring Docling captions when available.
@@ -111,8 +112,9 @@ def caption_images(
     docling_count = 0
     vision_count = 0
     fallback_count = 0
+    total = len(image_info)
 
-    for filename, info in image_info.items():
+    for i, (filename, info) in enumerate(image_info.items()):
         # Priority 1: Docling-extracted caption from the PDF
         if info.docling_caption:
             captions[filename] = info.docling_caption
@@ -133,6 +135,9 @@ def caption_images(
         # Priority 3: Section-title fallback
         captions[filename] = f"Image from section: {info.section_title}"
         fallback_count += 1
+
+        if progress_callback:
+            progress_callback(i + 1, total)
 
     logger.info(
         f"Captioned {len(captions)} images "

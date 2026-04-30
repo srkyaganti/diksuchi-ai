@@ -88,7 +88,7 @@ export default async function CollectionPage({
         <FileUploadDialogWrapper collectionId={collectionId} />
       </div>
 
-      <FileListTable files={files} />
+      <FileListTable files={files} collectionId={collectionId} />
     </div>
   );
 }

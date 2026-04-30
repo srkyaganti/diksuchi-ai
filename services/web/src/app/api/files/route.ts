@@ -93,8 +93,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Submit document processing to Python worker
+    let jobId: string | null = null;
     try {
-      await submitDocumentProcessing({
+      const processingJob = await submitDocumentProcessing({
         fileId: fileRecord.id,
         collectionId: collectionId,
         fileName: file.name,
@@ -102,13 +103,14 @@ export async function POST(request: NextRequest) {
         mimeType: file.type,
         uuid: uuid,
       });
+      jobId = processingJob.jobId;
       console.log(`Document processing job submitted for file: ${file.name}`);
     } catch (workerError) {
       console.error("Error submitting to Python worker:", workerError);
       // Log error but don't fail the upload - user can retry or process manually
     }
 
-    return NextResponse.json(serializeFile(fileRecord), { status: 201 });
+    return NextResponse.json({ ...serializeFile(fileRecord), jobId }, { status: 201 });
   } catch (error) {
     console.error("Error uploading file:", error);
     return NextResponse.json(
