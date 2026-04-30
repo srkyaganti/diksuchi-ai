@@ -186,6 +186,13 @@ class RetrieveResponse(BaseModel):
     timingMs: float
 
 
+class DeleteDocumentResponse(BaseModel):
+    deleted: bool
+    collectionId: str
+    documentUuid: str
+    bm25ChunksRemoved: int = 0
+
+
 # --------------------------------------------------
 # Health Endpoints
 # --------------------------------------------------
@@ -200,6 +207,7 @@ async def root():
             "health": "/health",
             "process": "POST /api/process",
             "job_status": "GET /api/jobs/{job_id}",
+            "delete_document": "DELETE /api/documents/{collection_id}/{document_uuid}",
             "retrieve": "POST /api/retrieve",
         },
     }
@@ -283,6 +291,42 @@ async def get_job_status(job_id: str):
 
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Job not found: {str(e)}")
+
+
+@app.delete(
+    "/api/documents/{collection_id}/{document_uuid}",
+    response_model=DeleteDocumentResponse,
+)
+async def delete_document(collection_id: str, document_uuid: str):
+    """Remove a document's chunks from the vector and BM25 indices.
+
+    Called by the web service when a file is deleted from the data library
+    so retrieval no longer surfaces the deleted document. No-ops cleanly if
+    the document was never fully indexed.
+    """
+    from src.storage.vector_store import VectorStore
+    from src.storage.bm25_store import BM25Store
+
+    try:
+        VectorStore().delete_document_chunks(collection_id, document_uuid)
+        bm25_removed = BM25Store().remove_document(collection_id, document_uuid)
+
+        return DeleteDocumentResponse(
+            deleted=True,
+            collectionId=collection_id,
+            documentUuid=document_uuid,
+            bm25ChunksRemoved=bm25_removed,
+        )
+    except Exception as exc:
+        logger.error(
+            f"Failed to delete document {document_uuid} from collection "
+            f"{collection_id}: {exc}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete document: {exc}",
+        )
 
 
 # --------------------------------------------------

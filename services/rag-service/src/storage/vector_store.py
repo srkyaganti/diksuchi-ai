@@ -98,13 +98,25 @@ class VectorStore:
         return coll.query(query_texts=[query_text], n_results=n_results)
 
     def delete_document_chunks(self, collection_id: str, document_uuid: str) -> None:
-        """Remove all chunks for a specific document from the collection."""
+        """Remove all chunks for a specific document from the collection.
+
+        No-ops if the underlying Chroma collection doesn't exist (e.g.
+        processing failed before any chunks were embedded). Raises on real
+        Chroma errors so callers can surface them.
+        """
         try:
             coll = self.get_collection(collection_id)
-            coll.delete(where={"document_uuid": document_uuid})
-            logger.info(
-                f"Deleted chunks for document {document_uuid} "
-                f"from collection {collection_id}"
-            )
         except Exception as exc:
-            logger.warning(f"Could not delete chunks for {document_uuid}: {exc}")
+            # ChromaDB raises when the collection is missing — treat as
+            # "nothing to delete" rather than a hard failure.
+            logger.info(
+                f"No vector collection for {collection_id} "
+                f"(nothing to delete for {document_uuid}): {exc}"
+            )
+            return
+
+        coll.delete(where={"document_uuid": document_uuid})
+        logger.info(
+            f"Deleted chunks for document {document_uuid} "
+            f"from collection {collection_id}"
+        )

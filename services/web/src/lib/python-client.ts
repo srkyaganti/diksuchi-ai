@@ -119,6 +119,32 @@ export class RAGServiceClient {
     }
   }
 
+  async deleteDocument(collectionId: string, documentUuid: string): Promise<void> {
+    const url = `${this.workerUrl}/api/documents/${collectionId}/${documentUuid}`;
+
+    try {
+      const response = await fetch(url, {
+        method: "DELETE",
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: "Unknown error" }));
+        throw new Error(
+          `Failed to delete document (${response.status}): ${error.detail || error.message || "Unknown error"}`
+        );
+      }
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        throw new Error("Document deletion request timed out");
+      }
+      if (error.code === "ECONNREFUSED") {
+        throw new Error("RAG service is not reachable. Is the service running?");
+      }
+      throw error;
+    }
+  }
+
   async retrieveDocuments(req: RetrieveRequest): Promise<RetrieveResponse> {
     const url = `${this.workerUrl}/api/retrieve`;
 
@@ -173,6 +199,13 @@ export async function submitDocumentProcessing(job: ProcessJobRequest): Promise<
 
 export async function retrieveDocuments(req: RetrieveRequest): Promise<RetrieveResponse> {
   return ragClient.retrieveDocuments(req);
+}
+
+export async function deleteDocumentFromRAG(
+  collectionId: string,
+  documentUuid: string,
+): Promise<void> {
+  return ragClient.deleteDocument(collectionId, documentUuid);
 }
 
 export async function checkProcessingServiceHealth(): Promise<boolean> {

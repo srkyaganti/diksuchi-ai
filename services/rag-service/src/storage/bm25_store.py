@@ -8,6 +8,7 @@ loaded on demand for keyword search during retrieval.
 
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -46,24 +47,75 @@ class BM25Store:
             {"id": c.chunk_id, "text": c.text, "metadata": c.metadata}
             for c in chunks
         ]
-        corpus_texts = [c.text for c in chunks]
+        self._persist_corpus(collection_id, corpus_dicts)
+        logger.info(
+            f"Built BM25 index for collection {collection_id}: "
+            f"{len(chunks)} chunks"
+        )
 
+    def _persist_corpus(self, collection_id: str, corpus_dicts: List[dict]) -> None:
+        """Tokenize, index, and persist the given corpus to disk.
+
+        If the corpus is empty, removes any existing on-disk index and
+        clears in-memory caches so subsequent searches get an empty result.
+        """
+        index_dir = self._index_dir(collection_id)
+
+        if not corpus_dicts:
+            if os.path.exists(index_dir):
+                shutil.rmtree(index_dir)
+            self._indices.pop(collection_id, None)
+            self._corpora.pop(collection_id, None)
+            logger.info(
+                f"Removed BM25 index for collection {collection_id} (empty corpus)"
+            )
+            return
+
+        corpus_texts = [c["text"] for c in corpus_dicts]
         tokenized = bm25s.tokenize(corpus_texts)
-
         retriever = bm25s.BM25()
         retriever.index(tokenized)
 
-        index_dir = self._index_dir(collection_id)
         Path(index_dir).mkdir(parents=True, exist_ok=True)
         retriever.save(index_dir, corpus=corpus_dicts)
 
         self._indices[collection_id] = retriever
         self._corpora[collection_id] = corpus_dicts
 
+    def remove_document(self, collection_id: str, document_uuid: str) -> int:
+        """Remove a document's chunks from the BM25 index by rebuilding without them.
+
+        Returns the number of chunks removed. No-ops when the index doesn't
+        exist (e.g. processing failed before BM25 was built) or when the
+        document has no chunks in the index.
+        """
+        if collection_id not in self._corpora and not self._load_index(collection_id):
+            logger.info(
+                f"No BM25 index for collection {collection_id} "
+                f"(nothing to remove for {document_uuid})"
+            )
+            return 0
+
+        corpus = self._corpora[collection_id]
+        filtered = [
+            c for c in corpus
+            if c.get("metadata", {}).get("document_uuid") != document_uuid
+        ]
+        removed = len(corpus) - len(filtered)
+
+        if removed == 0:
+            logger.info(
+                f"No BM25 chunks for document {document_uuid} "
+                f"in collection {collection_id}"
+            )
+            return 0
+
+        self._persist_corpus(collection_id, filtered)
         logger.info(
-            f"Built BM25 index for collection {collection_id}: "
-            f"{len(chunks)} chunks"
+            f"Removed {removed} BM25 chunk(s) for document {document_uuid} "
+            f"from collection {collection_id}"
         )
+        return removed
 
     def _load_index(self, collection_id: str) -> bool:
         """Load a persisted BM25 index from disk. Returns True on success."""

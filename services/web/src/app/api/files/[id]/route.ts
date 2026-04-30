@@ -6,6 +6,7 @@ import { unlink } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { serializeFile } from "@/lib/serializers";
+import { deleteDocumentFromRAG } from "@/lib/python-client";
 
 // GET /api/files/[id] - Get file details
 export async function GET(
@@ -91,6 +92,23 @@ export async function DELETE(
       file.collection.organizationId !== activeOrgId
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Clean up RAG indices BEFORE removing the file/DB row so a failure here
+    // doesn't leave orphan embeddings referenced by chat retrieval.
+    try {
+      await deleteDocumentFromRAG(file.collectionId, file.uuid);
+    } catch (ragError) {
+      console.error("Failed to clean up RAG indices:", ragError);
+      return NextResponse.json(
+        {
+          error:
+            "Could not remove document from the indexing service. The file was not deleted. Please retry.",
+          detail:
+            ragError instanceof Error ? ragError.message : String(ragError),
+        },
+        { status: 502 }
+      );
     }
 
     // Delete physical file

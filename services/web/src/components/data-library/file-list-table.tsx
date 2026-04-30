@@ -102,8 +102,13 @@ export function FileListTable({ files, collectionId }: FileListTableProps) {
   };
 
   useEffect(() => {
+    // Poll any file that is not in a terminal state. ragStatus starts at
+    // "none" right after upload (job is queued in RQ but the worker hasn't
+    // flipped it to "processing" yet); without this, the bar wouldn't appear
+    // until a manual refresh.
+    const isTerminal = (s: string | null) => s === "completed" || s === "failed";
     files
-      .filter((f) => f.ragStatus === "processing")
+      .filter((f) => !isTerminal(f.ragStatus))
       .forEach((f) => startPollingFile(f.id));
 
     return () => {
@@ -213,7 +218,6 @@ export function FileListTable({ files, collectionId }: FileListTableProps) {
         </TableHeader>
         <TableBody>
           {files.map((file) => {
-            const isProcessing = file.ragStatus === "processing";
             const progress = jobProgress[file.id];
 
             return (
@@ -221,7 +225,7 @@ export function FileListTable({ files, collectionId }: FileListTableProps) {
                 <TableCell className="font-medium">{file.name}</TableCell>
                 <TableCell>{formatFileSize(file.fileSize)}</TableCell>
                 <TableCell>
-                  {isProcessing && progress ? (
+                  {progress ? (
                     <div className="grid gap-1 w-full max-w-[220px]">
                       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                         <span className="truncate">{progress.message}</span>
