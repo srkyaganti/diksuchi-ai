@@ -58,7 +58,7 @@ import {
 } from "@/components/ai-elements/sources";
 import { CollectionFilesPanel } from "@/components/chat/collection-files-panel";
 import { VoiceInput } from "@/components/chat/voice-input";
-import { VoiceOutput } from "@/components/chat/voice-output";
+// import { VoiceOutput } from "@/components/chat/voice-output";
 import { toast } from "sonner";
 import { CopyIcon, ZoomInIcon, ZoomOutIcon, FileTextIcon, ExternalLinkIcon } from "lucide-react";
 
@@ -110,7 +110,7 @@ function ChatInput({
   collectionFileCount,
   status,
   languageCode,
-  lastAssistantText,
+  /* lastAssistantText, */
   onSubmit,
   onVoiceTranscribed,
 }: {
@@ -118,7 +118,7 @@ function ChatInput({
   collectionFileCount: number;
   status: ChatStatus;
   languageCode: string;
-  lastAssistantText: string;
+  /* lastAssistantText: string; */
   onSubmit: (message: PromptInputMessage) => void;
   onVoiceTranscribed: (input: { text: string; languageCode: string; setInput: (value: string) => void }) => void;
 }) {
@@ -167,12 +167,14 @@ function ChatInput({
               onTranscribed={handleVoiceTranscribed}
               isDisabled={!collectionId || status === "streaming"}
             />
+            {/*
             <VoiceOutput
               text={lastAssistantText}
               languageCode={languageCode}
               isDisabled={status !== "ready"}
               autoPlay={true}
             />
+            */}
           </PromptInputTools>
 
           <PromptInputSubmit
@@ -412,7 +414,7 @@ export default function ChatPage() {
       .join("\n");
   };
 
-  // Get last assistant message for voice output
+  /* Get last assistant message for voice output
   const lastAssistantMessage = messages
     .slice()
     .reverse()
@@ -420,7 +422,7 @@ export default function ChatPage() {
 
   const lastAssistantText = lastAssistantMessage?.parts
     ? extractTextContent(lastAssistantMessage.parts)
-    : "";
+    : ""; */
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)]">
@@ -638,7 +640,7 @@ export default function ChatPage() {
             collectionFileCount={collectionFileCount}
             status={status}
             languageCode={languageCode}
-            lastAssistantText={lastAssistantText}
+            /* lastAssistantText={lastAssistantText} */
             onSubmit={handleSubmit}
             onVoiceTranscribed={handleVoiceTranscribed}
           />
