@@ -1,10 +1,11 @@
-/*
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
 const VOICE_SERVICE_URL = process.env.VOICE_SERVICE_URL || "http://localhost:8000";
 
-// POST /api/voice/synthesize - Convert text to speech using ElevenLabs
+/**
+ * POST /api/voice/synthesize - Convert text to speech using ElevenLabs
+ */
 export async function POST(request: NextRequest) {
   try {
     // Validate session
@@ -66,5 +67,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
-*/
-export {};

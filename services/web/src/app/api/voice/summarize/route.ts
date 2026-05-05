@@ -1,4 +1,3 @@
-/*
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
@@ -128,5 +127,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
-*/
-export {};
