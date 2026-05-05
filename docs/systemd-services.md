@@ -55,16 +55,25 @@ systemctl --user daemon-reload                        # Reload unit definitions
 
 ## Service Files Location
 
+Live (active) units:
+
 ```
 ~/.config/systemd/user/
 ├── diksuchi-infra.service
+├── diksuchi-ollama-preload.service
 ├── diksuchi-rag-api.service
 ├── diksuchi-rag-worker.service
 ├── diksuchi-voice.service
 └── diksuchi-web.service
 ```
 
+Canonical copies (committed reference, used to bootstrap new machines):
+[`deploy/systemd/`](../deploy/systemd/) — see that directory's
+[README](../deploy/systemd/README.md) for install steps and the path
+substitutions to make on a different host.
+
 Boot readiness script: `scripts/wait-infra.sh`
+Ollama preload script: `scripts/preload-ollama-models.sh`
 
 ## How It Works
 

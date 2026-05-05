@@ -1,0 +1,15 @@
+[Unit]
+Description=Diksuchi AI - RAG API (FastAPI on port 5001)
+After=diksuchi-infra.service
+Requires=diksuchi-infra.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/avision/workspace/diksuchi-ai/services/rag-service
+ExecStart=/home/avision/workspace/diksuchi-ai/services/rag-service/.venv/bin/python main.py
+Restart=on-failure
+RestartSec=5
+Environment=PATH=/home/avision/workspace/diksuchi-ai/services/rag-service/.venv/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target

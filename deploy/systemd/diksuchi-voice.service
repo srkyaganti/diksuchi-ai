@@ -1,0 +1,15 @@
+[Unit]
+Description=Diksuchi AI - Voice Service (STT + TTS on port 8001)
+After=diksuchi-infra.service
+Requires=diksuchi-infra.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/avision/workspace/diksuchi-ai/services/voice-service
+ExecStart=/home/avision/workspace/diksuchi-ai/services/voice-service/.venv/bin/python server.py
+Restart=on-failure
+RestartSec=5
+Environment=PATH=/home/avision/workspace/diksuchi-ai/services/voice-service/.venv/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target

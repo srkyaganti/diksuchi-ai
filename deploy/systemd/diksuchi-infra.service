@@ -1,0 +1,11 @@
+[Unit]
+Description=Diksuchi AI - Infrastructure (Ollama + Docker + Postgres + Redis)
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash /home/avision/workspace/diksuchi-ai/scripts/wait-infra.sh
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target
