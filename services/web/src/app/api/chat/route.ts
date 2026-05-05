@@ -359,17 +359,8 @@ export async function POST(request: NextRequest) {
     const stream = createUIMessageStream({
       generateId: () => nanoid(),
       execute: async ({ writer }) => {
-        // Write document images as file parts before text
-        // Note: stream chunk schema is strict — only { type, url, mediaType } allowed
-        for (const imgPart of imageParts) {
-          writer.write({
-            type: imgPart.type,
-            url: imgPart.url,
-            mediaType: imgPart.mediaType,
-          });
-        }
-
-        // Stream LLM response and merge into the same message
+        // Stream LLM response first, then append document images so they
+        // appear after the assistant's text rather than before it.
         const result = streamText({
           model: llmService(modelName),
           system: systemPrompt,
@@ -386,9 +377,8 @@ export async function POST(request: NextRequest) {
             try {
               const parts: any[] = [];
 
-              // Persist image parts
-              for (const imgPart of imageParts) {
-                parts.push(imgPart);
+              if (text) {
+                parts.push({ type: "text", text });
               }
 
               if (toolCalls && toolCalls.length > 0) {
@@ -403,8 +393,9 @@ export async function POST(request: NextRequest) {
                 });
               }
 
-              if (text) {
-                parts.push({ type: "text", text });
+              // Persist image parts at the end so they render after the text
+              for (const imgPart of imageParts) {
+                parts.push(imgPart);
               }
 
               await prisma.chatMessage.create({
@@ -427,6 +418,18 @@ export async function POST(request: NextRequest) {
         });
 
         writer.merge(result.toUIMessageStream());
+
+        // Wait for the LLM stream to finish, then append image file-parts
+        // so they render after the assistant's text in the live stream.
+        // Note: stream chunk schema is strict — only { type, url, mediaType }.
+        await result.text;
+        for (const imgPart of imageParts) {
+          writer.write({
+            type: imgPart.type,
+            url: imgPart.url,
+            mediaType: imgPart.mediaType,
+          });
+        }
       },
       onError: (error) => {
         console.error("Stream error:", error);

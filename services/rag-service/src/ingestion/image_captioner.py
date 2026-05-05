@@ -115,6 +115,9 @@ def caption_images(
     total = len(image_info)
 
     for i, (filename, info) in enumerate(image_info.items()):
+        if progress_callback:
+            progress_callback(i + 1, total)
+
         # Priority 1: Docling-extracted caption from the PDF
         if info.docling_caption:
             captions[filename] = info.docling_caption
@@ -135,9 +138,6 @@ def caption_images(
         # Priority 3: Section-title fallback
         captions[filename] = f"Image from section: {info.section_title}"
         fallback_count += 1
-
-        if progress_callback:
-            progress_callback(i + 1, total)
 
     logger.info(
         f"Captioned {len(captions)} images "
