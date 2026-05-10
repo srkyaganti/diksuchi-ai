@@ -38,6 +38,15 @@ bm25_index/
 graph_data/
 data/
 
+# Vendored HebTTS upstream tree has `data/` and `models/` subdirectories
+# that legitimately need to be tracked despite the broader rules above.
+!services/voice-service/tts/hebtts/_vendored/**/data/
+!services/voice-service/tts/hebtts/_vendored/**/data/**
+!services/voice-service/tts/hebtts/_vendored/**/models/
+!services/voice-service/tts/hebtts/_vendored/**/models/**
+# ...but keep bytecode under those negated paths ignored.
+services/voice-service/tts/hebtts/_vendored/**/__pycache__/
+
 # IDE
 .vscode/
 .idea/

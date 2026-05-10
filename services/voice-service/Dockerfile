@@ -35,6 +35,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 \
     libsndfile1 \
+    espeak-ng \
     curl \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
@@ -48,6 +49,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
 
 COPY --chown=appuser:appuser server.py .
+COPY --chown=appuser:appuser tts/ ./tts/
 
 USER appuser
 

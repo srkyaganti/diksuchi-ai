@@ -11,8 +11,22 @@ faster-whisper~=1.2.1
 parler-tts~=0.2.3
 transformers~=4.46.0
 
+# TTS Model (HebTTS — vendored from slp-rl/HebTTS, Interspeech 2024)
+encodec~=0.1.1
+omegaconf~=2.3.0
+phonemizer~=3.3.0
+lhotse~=1.30.0
+librosa~=0.11.0
+torchaudio>=2.1.0
+torchmetrics>=1.0  # imported by vendored valle/models/transformer.py
+gdown~=5.2.0  # used by prefetch_models.py to fetch the HebTTS Drive checkpoint
+
 # Audio Processing
 soundfile~=0.13.1
+# Note: HebTTS upstream pins numpy<2 in its pyproject.toml. The existing
+# parler-tts / faster-whisper stack works on numpy 2.4.x, so we keep that
+# pin here. If lhotse/encodec install fails on numpy 2.x, downgrade to
+# numpy<2 and re-test the indic-parler path.
 numpy~=2.4.3
 
 # Utilities

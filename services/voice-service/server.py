@@ -3,26 +3,35 @@ Voice Service - Combined STT and TTS for Diksuchi AI
 
 GPU-accelerated speech-to-text and text-to-speech service.
 - STT: Faster Whisper with CTranslate2
-- TTS: Indic Parler TTS for 18+ Indian languages
+- TTS: language-routed across Indic Parler TTS (Indic + English) and
+  HebTTS (Hebrew); see tts/registry.py for the language allowlist.
 """
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-import os
+import asyncio
 import io
-import numpy as np
-import soundfile as sf
+import os
 from contextlib import asynccontextmanager
 
+import numpy as np
+import soundfile as sf
 import torch
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import Response
-from pydantic import BaseModel
 from faster_whisper import WhisperModel
-from parler_tts import ParlerTTSForConditionalGeneration
-from transformers import AutoTokenizer
+from pydantic import BaseModel
+
+from tts import (
+    LANGUAGE_SPEAKERS,
+    SUPPORTED_LANGUAGES,
+    TTSRouter,
+    normalize_language_code,
+)
+from tts.hebtts import HebTTSEngine
+from tts.indic_parler import IndicParlerEngine
 
 # --------------------------------------------------
 # Configuration
@@ -44,115 +53,11 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 HF_HUB_OFFLINE = os.getenv("HF_HUB_OFFLINE", "").lower() in ("1", "true", "on", "yes")
 
 # --------------------------------------------------
-# Language to speaker mapping (ISO 639 language codes)
-# --------------------------------------------------
-
-LANGUAGE_SPEAKERS = {
-    "as": {
-        "available": ["Amit", "Sita", "Poonam", "Rakesh"],
-        "recommended": ["Amit", "Sita"],
-    },
-    "bn": {
-        "available": ["Arjun", "Aditi", "Tapan", "Rashmi", "Arnav", "Riya"],
-        "recommended": ["Arjun", "Aditi"],
-    },
-    "brx": {
-        "available": ["Bikram", "Maya", "Kalpana"],
-        "recommended": ["Bikram", "Maya"],
-    },
-    "hne": {
-        "available": ["Bhanu", "Champa"],
-        "recommended": ["Bhanu", "Champa"],
-    },
-    "doi": {
-        "available": ["Karan"],
-        "recommended": ["Karan"],
-    },
-    "en": {
-        "available": [
-            "Thoma",
-            "Mary",
-            "Swapna",
-            "Dinesh",
-            "Meera",
-            "Jatin",
-            "Aakash",
-            "Sneha",
-            "Kabir",
-            "Tisha",
-            "Chingkhei",
-            "Thoiba",
-            "Priya",
-            "Tarun",
-            "Gauri",
-            "Nisha",
-            "Raghav",
-            "Kavya",
-            "Ravi",
-            "Vikas",
-            "Riya",
-        ],
-        "recommended": ["Thoma", "Mary"],
-    },
-    "gu": {
-        "available": ["Yash", "Neha"],
-        "recommended": ["Yash", "Neha"],
-    },
-    "hi": {
-        "available": ["Rohit", "Divya", "Aman", "Rani"],
-        "recommended": ["Rohit", "Divya"],
-    },
-    "kn": {
-        "available": ["Suresh", "Anu", "Chetan", "Vidya"],
-        "recommended": ["Suresh", "Anu"],
-    },
-    "ml": {
-        "available": ["Anjali", "Anju", "Harish"],
-        "recommended": ["Anjali", "Harish"],
-    },
-    "mni": {
-        "available": ["Laishram", "Ranjit"],
-        "recommended": ["Laishram", "Ranjit"],
-    },
-    "mr": {
-        "available": ["Sanjay", "Sunita", "Nikhil", "Radha", "Varun", "Isha"],
-        "recommended": ["Sanjay", "Sunita"],
-    },
-    "ne": {
-        "available": ["Amrita"],
-        "recommended": ["Amrita"],
-    },
-    "or": {
-        "available": ["Manas", "Debjani"],
-        "recommended": ["Manas", "Debjani"],
-    },
-    "pa": {
-        "available": ["Divjot", "Gurpreet"],
-        "recommended": ["Divjot", "Gurpreet"],
-    },
-    "sa": {
-        "available": ["Aryan"],
-        "recommended": ["Aryan"],
-    },
-    "ta": {
-        "available": ["Kavitha", "Jaya"],
-        "recommended": ["Jaya"],
-    },
-    "te": {
-        "available": ["Prakash", "Lalitha", "Kiran"],
-        "recommended": ["Prakash", "Lalitha"],
-    },
-}
-
-# --------------------------------------------------
-# Global model instances
+# Global state
 # --------------------------------------------------
 
 stt_model: WhisperModel | None = None
-tts_model: ParlerTTSForConditionalGeneration | None = None
-tokenizer: AutoTokenizer | None = None
-description_tokenizer: AutoTokenizer | None = None
-device: str | None = None
+router: TTSRouter | None = None
 
 
 # --------------------------------------------------
@@ -176,64 +81,6 @@ def load_audio(file_bytes: bytes) -> np.ndarray:
         ) from e
 
 
-def _resolve_device() -> str:
-    """Resolve the best available device for TTS."""
-    if TTS_DEVICE != "auto":
-        return TTS_DEVICE
-
-    if torch.cuda.is_available():
-        return "cuda"
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return "mps"
-    else:
-        return "cpu"
-
-
-def _log_device_info(device: str):
-    """Log device information."""
-    print(f"  Using device: {device}")
-
-    if device == "cuda":
-        print(f"  GPU: {torch.cuda.get_device_name(0)}")
-        props = torch.cuda.get_device_properties(0)
-        print(f"  GPU Memory: {props.total_memory / 1024**3:.2f} GB")
-    elif device == "mps":
-        print("  Using Apple Metal Performance Shaders")
-    else:
-        print("  Running on CPU (slow for TTS)")
-
-
-def get_speaker_description(language_code: str, speaker_name: str | None = None) -> str:
-    """
-    Build a voice description based on language and speaker.
-    If speaker_name is not provided, uses the first recommended speaker.
-    """
-    language_code = language_code.lower()
-
-    if language_code not in LANGUAGE_SPEAKERS:
-        raise ValueError(
-            f"Unsupported language: {language_code}. "
-            f"Available languages: {', '.join(LANGUAGE_SPEAKERS.keys())}"
-        )
-
-    if speaker_name is None:
-        speaker_name = LANGUAGE_SPEAKERS[language_code]["recommended"][0]
-    else:
-        if speaker_name not in LANGUAGE_SPEAKERS[language_code]["available"]:
-            raise ValueError(
-                f"Speaker '{speaker_name}' not available for {language_code}. "
-                f"Available speakers: {', '.join(LANGUAGE_SPEAKERS[language_code]['available'])}"
-            )
-
-    description = (
-        f"{speaker_name} speaks with a clear voice with slow speed "
-        f"with a moderate speed and pitch. The recording is of very high quality, "
-        f"with the speaker's voice sounding clear and very close up."
-    )
-
-    return description
-
-
 # --------------------------------------------------
 # Lifespan event handler
 # --------------------------------------------------
@@ -241,7 +88,7 @@ def get_speaker_description(language_code: str, speaker_name: str | None = None)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global stt_model, tts_model, tokenizer, description_tokenizer, device
+    global stt_model, router
 
     print("=" * 60)
     print("Voice Service Starting...")
@@ -258,7 +105,7 @@ async def lifespan(app: FastAPI):
         login(token=HF_TOKEN)
         print("✓ HuggingFace authentication configured\n")
 
-    print("[1/2] Loading STT Model (Faster Whisper)...")
+    print("[1/3] Loading STT Model (Faster Whisper)...")
     print(f"  Model: {STT_MODEL_NAME}")
     print(f"  Device: {STT_DEVICE}")
     print(f"  Compute type: {STT_COMPUTE_TYPE}")
@@ -272,27 +119,27 @@ async def lifespan(app: FastAPI):
         print(f"✗ Failed to load STT model: {e}")
         raise SystemExit(1)
 
-    print("[2/2] Loading TTS Model (Indic Parler TTS)...")
-    print(f"  Model: {TTS_MODEL_NAME}")
-
-    device = _resolve_device()
-    _log_device_info(device)
-
+    print("[2/3] Loading TTS Model (Indic Parler TTS)...")
+    indic = IndicParlerEngine(
+        model_name=TTS_MODEL_NAME, device=TTS_DEVICE, offline=HF_HUB_OFFLINE
+    )
     try:
-        tts_model = ParlerTTSForConditionalGeneration.from_pretrained(
-            TTS_MODEL_NAME, local_files_only=HF_HUB_OFFLINE
-        ).to(device)
-        tokenizer = AutoTokenizer.from_pretrained(
-            TTS_MODEL_NAME, local_files_only=HF_HUB_OFFLINE
-        )
-        description_tokenizer = AutoTokenizer.from_pretrained(
-            tts_model.config.text_encoder._name_or_path,
-            local_files_only=HF_HUB_OFFLINE,
-        )
-        print("✓ TTS model loaded successfully\n")
+        indic.load()
+        print("✓ Indic Parler engine loaded\n")
     except Exception as e:
-        print(f"✗ Failed to load TTS model: {e}")
+        print(f"✗ Failed to load Indic Parler engine: {e}")
         raise SystemExit(1)
+
+    print("[3/3] Loading TTS Model (HebTTS)...")
+    heb = HebTTSEngine(device=TTS_DEVICE)
+    try:
+        heb.load()
+        print("✓ HebTTS engine loaded\n")
+    except Exception as e:
+        print(f"✗ Failed to load HebTTS engine: {e}")
+        raise SystemExit(1)
+
+    router = TTSRouter({indic.name: indic, heb.name: heb})
 
     print("=" * 60)
     print("✓ All models loaded! Service ready.")
@@ -301,9 +148,7 @@ async def lifespan(app: FastAPI):
     yield
 
     stt_model = None
-    tts_model = None
-    tokenizer = None
-    description_tokenizer = None
+    router = None
     print("Models unloaded.")
 
 
@@ -324,13 +169,21 @@ app = FastAPI(
 # --------------------------------------------------
 
 
+def _engines_loaded() -> bool:
+    return router is not None and all(e.loaded for e in router.engines().values())
+
+
 @app.get("/")
 @app.get("/health")
 def health():
     """Combined health check for both services."""
+    engines_status = {}
+    if router is not None:
+        for name, engine in router.engines().items():
+            engines_status[name] = {"loaded": engine.loaded}
     return {
         "status": "healthy"
-        if (stt_model is not None and tts_model is not None)
+        if (stt_model is not None and _engines_loaded())
         else "loading",
         "stt": {
             "loaded": stt_model is not None,
@@ -338,9 +191,8 @@ def health():
             "device": STT_DEVICE,
         },
         "tts": {
-            "loaded": tts_model is not None,
-            "model": TTS_MODEL_NAME,
-            "device": device,
+            "loaded": _engines_loaded(),
+            "engines": engines_status,
         },
     }
 
@@ -364,15 +216,15 @@ def stt_health():
 
 @app.post("/stt/transcribe")
 async def stt_transcribe(
-    file: UploadFile = File(...), 
+    file: UploadFile = File(...),
     vad_filter: bool = STT_VAD_FILTER,
-    language: str | None = None
+    language: str | None = None,
 ):
     """
     Transcribe a single audio file.
 
     Returns language detection, full text, and segment-level timestamps.
-    
+
     Args:
         file: Audio file to transcribe
         vad_filter: Enable voice activity detection filter
@@ -422,11 +274,16 @@ async def stt_transcribe(
 @app.get("/tts/health")
 def tts_health():
     """TTS-specific health check."""
+    if router is None:
+        return {"status": "loading", "engines": {}}
+    engines = {
+        name: {"loaded": engine.loaded, "languages": sorted(engine.supported_languages())}
+        for name, engine in router.engines().items()
+    }
     return {
-        "status": "healthy" if tts_model is not None else "loading",
-        "model_loaded": tts_model is not None,
-        "model": TTS_MODEL_NAME,
-        "device": device,
+        "status": "healthy" if _engines_loaded() else "loading",
+        "supported_languages": sorted(SUPPORTED_LANGUAGES),
+        "engines": engines,
     }
 
 
@@ -442,46 +299,43 @@ class TTSRequest(BaseModel):
 @app.post("/tts/generate")
 async def tts_generate(request: TTSRequest):
     """
-    Generate audio from text using TTS model.
+    Generate audio from text using the TTS engine bound to ``language_code``.
 
-    Parameters:
-    - text: The text to convert to speech
-    - language_code: ISO 639 language code (e.g., 'hi', 'en', 'ta')
-    - speaker_name: Optional speaker name
-    - custom_description: Optional custom voice description
-
-    Returns: Audio file in WAV format
+    Returns 400 immediately if the language code is not in the allowlist —
+    no model code runs for unsupported codes.
     """
-    if tts_model is None:
-        raise HTTPException(status_code=503, detail="TTS model not loaded yet")
+    if router is None:
+        raise HTTPException(status_code=503, detail="TTS engines not loaded yet")
 
-    try:
-        if request.custom_description:
-            description = request.custom_description
-        else:
-            try:
-                description = get_speaker_description(
-                    request.language_code, request.speaker_name
-                )
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
-
-        description_input_ids = description_tokenizer(
-            description, return_tensors="pt"
-        ).to(device)
-        prompt_input_ids = tokenizer(request.text, return_tensors="pt").to(device)
-
-        generation = tts_model.generate(
-            input_ids=description_input_ids.input_ids,
-            attention_mask=description_input_ids.attention_mask,
-            prompt_input_ids=prompt_input_ids.input_ids,
-            prompt_attention_mask=prompt_input_ids.attention_mask,
+    code = normalize_language_code(request.language_code)
+    if code not in SUPPORTED_LANGUAGES:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "unsupported_language",
+                "language_code": request.language_code,
+                "supported": sorted(SUPPORTED_LANGUAGES),
+            },
         )
 
-        audio_arr = generation.cpu().numpy().squeeze()
+    try:
+        engine = router.route(code)
+    except KeyError:
+        # Defensive: route() and the allowlist agree, so this shouldn't fire.
+        raise HTTPException(status_code=500, detail="No engine for language")
+
+    try:
+        async with engine.lock:
+            audio_arr, sample_rate = await asyncio.to_thread(
+                engine.synthesize,
+                request.text,
+                code,
+                request.speaker_name,
+                request.custom_description,
+            )
 
         buffer = io.BytesIO()
-        sf.write(buffer, audio_arr, tts_model.config.sampling_rate, format="WAV")
+        sf.write(buffer, audio_arr, sample_rate, format="WAV")
         buffer.seek(0)
 
         return Response(
@@ -490,6 +344,11 @@ async def tts_generate(request: TTSRequest):
             headers={"Content-Disposition": "attachment; filename=output.wav"},
         )
 
+    except ValueError as e:
+        # Engine-level validation (unknown speaker, etc.).
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating audio: {str(e)}")
 
@@ -503,16 +362,16 @@ def tts_list_languages():
 @app.get("/tts/languages/{language_code}")
 def tts_get_language_info(language_code: str):
     """Get speaker information for a specific language."""
-    language_code = language_code.lower()
+    code = normalize_language_code(language_code)
 
-    if language_code not in LANGUAGE_SPEAKERS:
+    if code not in LANGUAGE_SPEAKERS:
         raise HTTPException(
             status_code=404,
             detail=f"Language '{language_code}' not found. "
             f"Available languages: {', '.join(LANGUAGE_SPEAKERS.keys())}",
         )
 
-    return {"language": language_code, "speakers": LANGUAGE_SPEAKERS[language_code]}
+    return {"language": code, "speakers": LANGUAGE_SPEAKERS[code]}
 
 
 # --------------------------------------------------

@@ -5,7 +5,10 @@ Combined Speech-to-Text (STT) and Text-to-Speech (TTS) service for Diksuchi AI.
 ## Features
 
 - **STT**: GPU-accelerated transcription using Faster Whisper (large-v3)
-- **TTS**: Text-to-speech for 18+ Indian languages using Indic Parler TTS
+- **TTS**: language-routed across two engines
+  - **Indic Parler TTS** for 18 Indic languages + English
+  - **HebTTS** (vendored from `slp-rl/HebTTS`) for Hebrew (`he`)
+- **Allowlist guard rail**: `/tts/generate` rejects unsupported language codes with a 400 before any model code runs.
 - **Namespaced endpoints**: `/stt/*` and `/tts/*` for clear separation
 - **Progressive loading**: Shows model loading progress on startup
 
@@ -183,14 +186,38 @@ TTS-specific health check.
 
 ## Supported Languages
 
-The TTS service supports 18+ Indian languages:
+19 codes total. Anything else returns `400 unsupported_language` before
+any model code runs. The single source of truth is
+`tts/registry.py::LANGUAGE_ENGINE`.
 
-- Hindi (hi), Bengali (bn), Tamil (ta), Telugu (te)
-- Marathi (mr), Gujarati (gu), Kannada (kn), Malayalam (ml)
-- Punjabi (pa), Assamese (as), Odia (or), Nepali (ne)
-- Sanskrit (sa), English (en), and more...
+| Engine | Codes |
+| --- | --- |
+| `indic_parler` | as, bn, brx, hne, doi, en, gu, hi, kn, ml, mni, mr, ne, or, pa, sa, ta, te |
+| `hebtts` | he (also accepts the legacy code `iw`) |
 
-See `/tts/languages` for complete list with available speakers.
+See `/tts/languages` for the complete map of speakers per language.
+
+### Hebrew (HebTTS)
+
+HebTTS is vendored from
+[`slp-rl/HebTTS`](https://github.com/slp-rl/HebTTS) at commit
+`4cfc2b2a6b0127c575661dc938d3a43a75b265c5` under
+`tts/hebtts/_vendored/` (see `VENDOR_NOTICE.md` there). The model is a
+VALL-E-style autoregressive + non-autoregressive pair operating on
+encodec discrete speech tokens, conditioned on AlephBert word-piece
+tokenization of unvocalized Hebrew text.
+
+Three reference speakers are bundled (`osim`, `geek`, `shaul`). Their
+acoustic prompts are pre-encoded once at startup and cached on-device.
+
+The checkpoint is **not** a HuggingFace model — it lives on Google Drive
+(file id baked into upstream's README). `prefetch_models.py` downloads
+it via `gdown` to `HEBTTS_CHECKPOINT_PATH` (default
+`~/.cache/hebtts/checkpoint.pt`).
+
+System dependency: `phonemizer` requires `espeak-ng` to be installed on
+the host. The Dockerfile already does this; on bare-metal Ubuntu run
+`apt-get install espeak-ng`.
 
 ## Docker
 

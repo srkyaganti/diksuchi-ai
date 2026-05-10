@@ -3,12 +3,24 @@ import { auth } from "@/lib/auth";
 
 const VOICE_SERVICE_URL = process.env.VOICE_SERVICE_URL || "http://localhost:8000";
 
+// Keep in sync with services/voice-service/tts/registry.py LANGUAGE_ENGINE.
+const SUPPORTED_TTS_LANGUAGES = new Set([
+  "as", "bn", "brx", "hne", "doi", "en", "gu", "hi", "kn", "ml",
+  "mni", "mr", "ne", "or", "pa", "sa", "ta", "te",
+  "he",
+]);
+const TTS_LANGUAGE_ALIASES: Record<string, string> = { iw: "he" };
+
+function normalizeLanguageCode(code: string): string {
+  const lower = code.trim().toLowerCase();
+  return TTS_LANGUAGE_ALIASES[lower] ?? lower;
+}
+
 /**
- * POST /api/voice/synthesize - Convert text to speech using ElevenLabs
+ * POST /api/voice/synthesize - Convert text to speech via voice-service.
  */
 export async function POST(request: NextRequest) {
   try {
-    // Validate session
     const session = await auth.api.getSession({
       headers: request.headers,
     });
@@ -17,15 +29,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { text, languageCode } = await request.json(); // Default to Bella voice
+    const { text, languageCode } = await request.json();
 
     if (!text) {
       return NextResponse.json({ error: "Text is required" }, { status: 400 });
     }
 
-		if (!languageCode) {
-			return NextResponse.json({ error: "Language is required" });
-		}
+    if (!languageCode) {
+      return NextResponse.json(
+        { error: "Language is required" },
+        { status: 400 }
+      );
+    }
+
+    const normalized = normalizeLanguageCode(languageCode);
+    if (!SUPPORTED_TTS_LANGUAGES.has(normalized)) {
+      return NextResponse.json(
+        {
+          error: "unsupported_language",
+          language_code: languageCode,
+          supported: Array.from(SUPPORTED_TTS_LANGUAGES).sort(),
+        },
+        { status: 400 }
+      );
+    }
 
     if (text.length > 5000) {
       return NextResponse.json(
@@ -41,7 +68,7 @@ export async function POST(request: NextRequest) {
 			},
 			body: JSON.stringify({
 				text,
-				"language_code": languageCode
+				"language_code": normalized
 			})
 		})
 
