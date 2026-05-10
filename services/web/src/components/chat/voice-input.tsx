@@ -23,6 +23,7 @@ const SUPPORTED_LANGUAGES = [
   { code: "kn", name: "Kannada" },
   { code: "ml", name: "Malayalam" },
   { code: "pa", name: "Punjabi" },
+  { code: "he", name: "Hebrew" },
 ] as const;
 
 interface OnTranscribedProps {
