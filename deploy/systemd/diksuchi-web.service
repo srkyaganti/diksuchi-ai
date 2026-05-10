@@ -6,7 +6,6 @@ Requires=diksuchi-infra.service
 [Service]
 Type=simple
 WorkingDirectory=/home/avision/workspace/diksuchi-ai/services/web
-ExecStartPre=/home/avision/.nvm/versions/node/v22.22.1/bin/pnpm build
 ExecStart=/home/avision/.nvm/versions/node/v22.22.1/bin/pnpm start
 Restart=on-failure
 RestartSec=5

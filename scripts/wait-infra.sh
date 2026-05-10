@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PROJECT_DIR="/home/avision/workspace/diksuchi-ai"
-OLLAMA_URL="http://172.30.16.1:11434"
+OLLAMA_URL="http://localhost:11434"
 MAX_WAIT=180  # seconds (Docker Desktop can be slow to start)
 
 log() { echo "[infra] $(date '+%H:%M:%S') $*"; }

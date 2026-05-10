@@ -50,6 +50,10 @@ echo Press Ctrl+C to stop Ollama
 echo ============================================================
 echo.
 
+REM Wake WSL in parallel so systemd + linger bring up diksuchi services
+echo Triggering WSL boot (default distro)...
+start "" /B wsl.exe --exec /bin/true
+
 REM Start Ollama in foreground
 "!OLLAMA_PATH!" serve
 
