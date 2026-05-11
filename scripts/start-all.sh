@@ -3,7 +3,7 @@
 # Diksuchi-AI — Unified Service Launcher
 #
 # Starts all services with a single command:
-#   1. Docker infra (Postgres + Redis)
+#   1. Verify Postgres + Redis (native systemd; apt-installed)
 #   2. Ollama (via Windows PowerShell)
 #   3. RAG API (port 5001)
 #   4. RAG Worker
@@ -13,7 +13,7 @@
 #
 # Usage:  bash scripts/start-all.sh
 # Idempotent: Can be run multiple times — automatically restarts services
-# Stop:   Ctrl+C (kills everything and stops Docker)
+# Stop:   Ctrl+C (kills app services; postgres/redis keep running)
 # ============================================================
 
 set -euo pipefail
@@ -42,11 +42,8 @@ cleanup() {
     kill $(jobs -p) 2>/dev/null || true
     wait 2>/dev/null || true
 
-    # Stop Docker containers
-    echo -e "${YELLOW}  Stopping Docker containers...${NC}"
-    cd "$ROOT_DIR" && docker compose stop postgres redis 2>/dev/null || true
-
-    echo -e "${GREEN}${BOLD}All services stopped.${NC}"
+    # Postgres + Redis are systemd-managed; intentionally left running
+    echo -e "${GREEN}${BOLD}All app services stopped (postgres + redis still running).${NC}"
 }
 trap cleanup EXIT INT TERM
 
@@ -106,32 +103,29 @@ echo -e "${GREEN}${BOLD}================================================${NC}"
 # Run pre-startup cleanup to make script idempotent
 pre_cleanup
 
-# ========== [1/7] Docker Infrastructure ==========
-echo -e "\n${YELLOW}[1/7] Starting Postgres + Redis (Docker)...${NC}"
-cd "$ROOT_DIR"
-docker compose up -d postgres redis
-
-echo -e "${CYAN}  Waiting for containers to be healthy...${NC}"
+# ========== [1/7] Infrastructure (native systemd) ==========
+echo -e "\n${YELLOW}[1/7] Verifying Postgres + Redis (native systemd)...${NC}"
 TIMEOUT=60
 ELAPSED=0
 while true; do
-    PG_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' diksuchi-postgres 2>/dev/null || echo "missing")
-    RD_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' diksuchi-redis 2>/dev/null || echo "missing")
+    PG_OK=0; RD_OK=0
+    pg_isready -h localhost -q 2>/dev/null && PG_OK=1
+    redis-cli ping 2>/dev/null | grep -q PONG && RD_OK=1
 
-    if [[ "$PG_HEALTH" == "healthy" && "$RD_HEALTH" == "healthy" ]]; then
-        echo -e "${GREEN}  Postgres: healthy  |  Redis: healthy${NC}"
+    if [[ $PG_OK -eq 1 && $RD_OK -eq 1 ]]; then
+        echo -e "${GREEN}  Postgres: ready  |  Redis: ready${NC}"
         break
     fi
 
     if (( ELAPSED >= TIMEOUT )); then
-        echo -e "${RED}  Timed out waiting for Docker health checks (${TIMEOUT}s)${NC}"
-        echo -e "${RED}  Postgres: ${PG_HEALTH}  |  Redis: ${RD_HEALTH}${NC}"
+        echo -e "${RED}  Timed out (${TIMEOUT}s). Postgres=$PG_OK  Redis=$RD_OK${NC}"
+        echo -e "${RED}  Check: sudo systemctl status postgresql redis-server${NC}"
         exit 1
     fi
 
     sleep 2
     ELAPSED=$((ELAPSED + 2))
-    echo -e "${CYAN}  Postgres: ${PG_HEALTH}  |  Redis: ${RD_HEALTH}  (${ELAPSED}s)${NC}"
+    echo -e "${CYAN}  Postgres: $PG_OK  Redis: $RD_OK  (${ELAPSED}s)${NC}"
 done
 
 # ========== [2/7] Ollama (Windows side) ==========

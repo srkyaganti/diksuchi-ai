@@ -9,7 +9,7 @@ Diksuchi AI services on the deployment host. Operational commands
 
 | File | Type | What it does |
 |---|---|---|
-| `diksuchi-infra.service` | oneshot | Runs `scripts/wait-infra.sh` — gates everything else until Ollama, Docker, postgres, redis are up |
+| `diksuchi-infra.service` | oneshot | Runs `scripts/wait-infra.sh` — gates everything else until Ollama, postgres, redis are reachable |
 | `diksuchi-ollama-preload.service` | oneshot | Runs `scripts/preload-ollama-models.sh` to pull `gemma4:e4b` into Ollama |
 | `diksuchi-rag-api.service` | simple | FastAPI retrieval service on port 5001 |
 | `diksuchi-rag-worker.service` | simple | Redis queue consumer for document processing |
@@ -79,9 +79,10 @@ proceed with `daemon-reload` + `enable --now`.
 - **Ollama** installed on the Windows host (WSL2 deployments) with
   `OLLAMA_HOST=0.0.0.0:11434` so Linux-side services can reach it. Native
   Linux deployments would adapt or remove `diksuchi-ollama-preload`.
-- **Docker Desktop** with WSL integration enabled (or native Docker on
-  Linux) — `wait-infra.sh` brings up `postgres` + `redis` via
-  `docker compose`.
+- **Postgres + Redis** as system-level systemd services (`postgresql`,
+  `redis-server`) installed via apt — see
+  `scripts/install-native-pg-redis.sh`. They auto-start at boot;
+  `wait-infra.sh` only verifies reachability before app services start.
 
 ## Updating the units
 

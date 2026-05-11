@@ -6,7 +6,7 @@ All services run as **systemd user services** under the `avision` user in WSL2. 
 
 | Service | Unit Name | What it does | Port |
 |---------|-----------|-------------|------|
-| Infrastructure | `diksuchi-infra` | Waits for Ollama + Docker Desktop, starts postgres + redis | — |
+| Infrastructure | `diksuchi-infra` | Waits for Ollama + verifies native postgres + redis | — |
 | RAG API | `diksuchi-rag-api` | FastAPI retrieval service | 5001 |
 | RAG Worker | `diksuchi-rag-worker` | Document processing (Redis queue consumer) | — |
 | Voice | `diksuchi-voice` | STT (Whisper) + TTS (Indic Parler) | 8001 |
@@ -15,7 +15,7 @@ All services run as **systemd user services** under the `avision` user in WSL2. 
 ## Startup Order
 
 ```
-Boot → diksuchi-infra (Ollama → Docker → postgres → redis)
+Boot → diksuchi-infra (Ollama + postgres + redis reachable)
          ↓
        diksuchi-rag-api
        diksuchi-rag-worker
@@ -79,7 +79,7 @@ Ollama preload script: `scripts/preload-ollama-models.sh`
 
 - **systemd user services** run under your user account, no root needed
 - **`loginctl enable-linger avision`** makes them start at WSL boot without logging in
-- **`diksuchi-infra`** is a oneshot service that gates all others — it waits for Ollama (Windows host), Docker Desktop WSL integration, then starts postgres + redis via docker compose
+- **`diksuchi-infra`** is a oneshot service that gates all others — it waits for Ollama (Windows host) and confirms postgres + redis (native systemd services) are reachable
 - **App services** use `Requires=diksuchi-infra.service` so they won't start until infrastructure is healthy
 - **`diksuchi-web`** uses `ExecStartPre=pnpm build` to build before starting in production mode
 - **Python services** use the full venv path (`.venv/bin/python`) so no activation needed
@@ -87,10 +87,8 @@ Ollama preload script: `scripts/preload-ollama-models.sh`
 
 ## Prerequisites
 
-These must be configured on the Windows host:
-
-1. **Ollama** — set to start on boot, with system env var `OLLAMA_HOST=0.0.0.0:11434`
-2. **Docker Desktop** — set to start on boot, with WSL integration enabled
+1. **Ollama** (Windows host) — set to start on boot, with system env var `OLLAMA_HOST=0.0.0.0:11434`
+2. **Postgres + Redis** (WSL Ubuntu) — installed via `scripts/install-native-pg-redis.sh`; auto-start as system services
 3. **Linger** — run once: `sudo loginctl enable-linger avision`
 
 ## Disabling Auto-Start

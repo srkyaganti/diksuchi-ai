@@ -216,45 +216,7 @@ it via `gdown` to `HEBTTS_CHECKPOINT_PATH` (default
 `~/.cache/hebtts/checkpoint.pt`).
 
 System dependency: `phonemizer` requires `espeak-ng` to be installed on
-the host. The Dockerfile already does this; on bare-metal Ubuntu run
-`apt-get install espeak-ng`.
-
-## Docker
-
-### Build
-
-```bash
-docker build -t diksuchi-voice-service .
-```
-
-### Run
-
-```bash
-docker run -d \
-  --gpus all \
-  -p 8000:8000 \
-  -e HF_TOKEN=your_token_here \
-  diksuchi-voice-service
-```
-
-### Docker Compose
-
-```yaml
-services:
-  voice-service:
-    build: ./services/voice-service
-    ports:
-      - "8000:8000"
-    environment:
-      - HF_TOKEN=${HF_TOKEN}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-```
+the host: `sudo apt-get install espeak-ng`.
 
 ## Troubleshooting
 

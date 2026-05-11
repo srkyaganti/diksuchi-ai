@@ -80,16 +80,10 @@ Required variables:
 
 ### Start Dependencies
 
-Ensure these services are running:
-- PostgreSQL (port 5432)
-- Redis (port 6379)
-- ChromaDB (port 8000)
-
-You can start them with:
-```bash
-# From frontend root
-docker-compose up -d postgres redis chromadb
-```
+Ensure these are running:
+- PostgreSQL on port 5432 (system service: `sudo systemctl start postgresql`)
+- Redis on port 6379 (system service: `sudo systemctl start redis-server`)
+- ChromaDB on port 8000 (if used)
 
 ### Start FastAPI Service
 
@@ -103,6 +97,8 @@ In a separate terminal:
 ```bash
 python worker.py
 ```
+
+In production these run as systemd user units (`diksuchi-rag-api`, `diksuchi-rag-worker`) — see `deploy/systemd/`.
 
 ### Verify Service
 
@@ -119,17 +115,6 @@ Expected response:
   "embedding_model": "models/bge-m3"
 }
 ```
-
-## Running with Docker
-
-The service is automatically started via docker-compose:
-
-```bash
-# From frontend root
-docker-compose up -d python-worker
-```
-
-This runs both the FastAPI service and RQ worker in a single container.
 
 ## API Endpoints
 
@@ -278,7 +263,6 @@ python-worker/
 │   ├── bm25_index/      # Keyword index
 │   └── graphs/          # Knowledge graphs
 ├── models/              # Embedding models
-├── Dockerfile
 ├── requirements.txt
 └── README.md
 ```
@@ -315,13 +299,9 @@ Device auto-detection happens in `SentenceTransformerEmbeddingFunction.__init__(
 
 ### Concurrency
 
-Adjust RQ worker concurrency in docker-compose.yml:
-```yaml
-command: >
-  sh -c "
-  python3 main.py &
-  rq worker --burst document-processing -w 4
-  "
+Adjust RQ worker concurrency in the worker's launch command:
+```bash
+rq worker --burst document-processing -w 4
 ```
 
 ## License

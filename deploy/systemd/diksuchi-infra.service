@@ -1,5 +1,5 @@
 [Unit]
-Description=Diksuchi AI - Infrastructure (Ollama + Docker + Postgres + Redis)
+Description=Diksuchi AI - Infrastructure readiness (Ollama + Postgres + Redis)
 
 [Service]
 Type=oneshot

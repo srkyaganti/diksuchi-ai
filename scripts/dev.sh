@@ -2,11 +2,13 @@
 # ============================================================
 # Diksuchi-AI Development Startup Script
 #
-# Starts infrastructure in Docker and application services
-# natively for fast iteration (no Docker builds).
+# Starts application services natively for fast iteration.
+# Postgres + Redis run as system-level systemd services
+# (apt-installed, auto-start at boot).
 #
 # Prerequisites:
-#   - Docker & docker-compose (for Postgres + Redis)
+#   - postgresql + redis-server installed via apt
+#     (see scripts/install-native-pg-redis.sh)
 #   - Python 3.11+ with venv at services/rag-service/.venv
 #   - Node.js / pnpm (for the web service)
 #   - Ollama installed natively (ollama.com)
@@ -32,11 +34,18 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN} Diksuchi-AI Dev Environment${NC}"
 echo -e "${GREEN}========================================${NC}"
 
-# --- 1. Infrastructure (Docker) ---
-echo -e "\n${YELLOW}[1/5] Starting Postgres + Redis...${NC}"
-cd "$ROOT_DIR"
-docker compose up -d postgres redis
-echo -e "${GREEN}  Postgres :5432  Redis :6379${NC}"
+# --- 1. Infrastructure (native systemd) ---
+echo -e "\n${YELLOW}[1/5] Checking Postgres + Redis...${NC}"
+if pg_isready -h localhost -q 2>/dev/null; then
+    echo -e "${GREEN}  Postgres :5432${NC}"
+else
+    echo -e "${RED}  Postgres unreachable -- run: sudo systemctl start postgresql${NC}"
+fi
+if redis-cli ping 2>/dev/null | grep -q PONG; then
+    echo -e "${GREEN}  Redis :6379${NC}"
+else
+    echo -e "${RED}  Redis unreachable -- run: sudo systemctl start redis-server${NC}"
+fi
 
 # --- 2. Ollama (native) ---
 echo -e "\n${YELLOW}[2/5] Starting Ollama...${NC}"
