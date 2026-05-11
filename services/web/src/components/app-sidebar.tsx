@@ -3,6 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   IconDatabase,
   IconFileAi,
@@ -12,12 +13,21 @@ import {
   IconBook,
 } from "@tabler/icons-react";
 
-import { NavMain } from "@/components/nav-main";
+import { NavMain, type NavMainItem } from "@/components/nav-main";
 import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
 } from "@/components/ui/sidebar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
 import { Organization } from "@/generated/prisma/client";
 import { OrganizationSwitcher } from "@/components/org/organization-switcher";
@@ -36,6 +46,9 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function AppSidebar({ organization, user: userProp, ...props }: AppSidebarProps) {
   const { data: session } = useSession();
+  const pathname = usePathname();
+  const router = useRouter();
+  const [confirmExitOpen, setConfirmExitOpen] = React.useState(false);
 
   // Use server-provided user prop if available, otherwise fall back to client session
   const user = userProp ?? (session ? {
@@ -45,13 +58,31 @@ export function AppSidebar({ organization, user: userProp, ...props }: AppSideba
     isSuperAdmin: !!(session.user as any).isSuperAdmin,
   } : null);
 
+  const chatUrl = organization ? `/org/${organization.slug}/chat` : "/chat";
+  // True only when the user is inside a specific chat session
+  // (e.g. /org/avision/chat/cmp123), not on the empty chat landing page.
+  const insideSpecificChat = pathname.startsWith(chatUrl + "/");
+
+  const handleChatNavigate = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (insideSpecificChat) {
+      e.preventDefault();
+      setConfirmExitOpen(true);
+    }
+  };
+
+  const confirmExit = () => {
+    setConfirmExitOpen(false);
+    router.push(chatUrl);
+  };
+
   // If organization context exists, use org-scoped URLs
-  const baseNavItems = organization
+  const baseNavItems: NavMainItem[] = organization
     ? [
         {
           title: "Chat",
           url: `/org/${organization.slug}/chat`,
           icon: IconFileAi,
+          onNavigate: handleChatNavigate,
         },
         {
           title: "Data Library",
@@ -80,6 +111,7 @@ export function AppSidebar({ organization, user: userProp, ...props }: AppSideba
           title: "Chat",
           url: "/chat",
           icon: IconFileAi,
+          onNavigate: handleChatNavigate,
         },
         {
           title: "Data Library",
@@ -122,6 +154,23 @@ export function AppSidebar({ organization, user: userProp, ...props }: AppSideba
       <SidebarContent>
         <NavMain items={navItems} />
       </SidebarContent>
+      <Dialog open={confirmExitOpen} onOpenChange={setConfirmExitOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Exit this chat?</DialogTitle>
+            <DialogDescription>
+              You&apos;ll leave this conversation and return to a new chat. The current
+              chat will remain in your history.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmExitOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmExit}>Exit chat</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sidebar>
   );
 }

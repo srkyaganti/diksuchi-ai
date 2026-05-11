@@ -105,6 +105,38 @@ function DocumentImage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+type MessagePart = UIMessage["parts"][number];
+
+// Render-time dedup so a single document image never appears more than once
+// per assistant message — regardless of whether the LLM repeated its
+// markdown reference or the trailing file-part also points to it. Second+
+// occurrences of an image URL in markdown become *caption* italic text.
+function dedupeImagePartsForMessage(parts: MessagePart[]): MessagePart[] {
+  const seen = new Set<string>();
+  const isDocImageUrl = (u?: string) =>
+    !!u && u.includes("/api/files/") && u.includes("/images/");
+  const imgMd = /!\[([^\]]*)\]\((\/api\/files\/[^)]+\/images\/[^)\s]+)\)/g;
+
+  const out: MessagePart[] = [];
+  for (const part of parts) {
+    if (isTextUIPart(part)) {
+      const newText = part.text.replace(imgMd, (full, alt: string, url: string) => {
+        if (seen.has(url)) return alt ? `*${alt}*` : "";
+        seen.add(url);
+        return full;
+      });
+      out.push(newText === part.text ? part : { ...part, text: newText });
+      continue;
+    }
+    if (isFileUIPart(part) && isDocImageUrl(part.url)) {
+      if (seen.has(part.url!)) continue;
+      seen.add(part.url!);
+    }
+    out.push(part);
+  }
+  return out;
+}
+
 function ChatInput({
   collectionId,
   collectionFileCount,
@@ -210,7 +242,9 @@ export default function ChatPage() {
     }
   }, [chatIdFromUrl, orgSlug, router]);
 
-  // Load session from path-based chatId
+  // Load session from path-based chatId, or reset to a fresh empty chat
+  // when chatId leaves the URL (e.g. user clicks the sidebar Chat button
+  // from inside a specific chat, or hits browser back).
   useEffect(() => {
     if (chatIdFromUrl) {
       if (justCreatedSessionRef.current) {
@@ -220,6 +254,9 @@ export default function ChatPage() {
       setSessionId(chatIdFromUrl);
       loadExistingMessages(chatIdFromUrl);
     } else {
+      setMessages([]);
+      setMessageSources({});
+      setSessionId("");
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -523,7 +560,7 @@ export default function ChatPage() {
                   <Message from={message.role}>
                     <MessageContent>
                       {message.parts &&
-                        message.parts.map((part, i) => {
+                        dedupeImagePartsForMessage(message.parts).map((part, i) => {
                           if (isTextUIPart(part)) {
                             return (
                               <MessageResponse key={`${message.id}-text-${i}`}>

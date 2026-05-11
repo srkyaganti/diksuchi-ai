@@ -135,7 +135,9 @@ The following images were extracted from the source documents with descriptions 
 
 ${imageRefs.join("\n")}
 
-When including an image, use the provided description to introduce it naturally (e.g. "The following figure shows the disc brake assembly:"). Place images inline within your response near the relevant step or description, not grouped at the end.`;
+When including an image, use the provided description to introduce it naturally (e.g. "The following figure shows the disc brake assembly:"). Place images inline within your response near the relevant step or description, not grouped at the end.
+
+**Each image must appear AT MOST ONCE in your response.** If you need to refer to the same figure again later in the answer, mention it by its caption only (e.g. "as shown in **${imageRefs.length > 0 ? "Figure 3-1" : "the figure"}** above") and do NOT repeat the \`![](...)\` markdown. Never emit the same image URL more than once, even when describing it from a different angle or in a different section of your answer.`;
   }
 
   return prompt;
