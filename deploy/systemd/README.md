@@ -14,7 +14,7 @@ Diksuchi AI services on the deployment host. Operational commands
 | `diksuchi-rag-api.service` | simple | FastAPI retrieval service on port 5001 |
 | `diksuchi-rag-worker.service` | simple | Redis queue consumer for document processing |
 | `diksuchi-voice.service` | simple | STT (Whisper) + TTS (Indic Parler) on port 8001 |
-| `diksuchi-web.service` | simple | Next.js frontend on port 3000 (rebuilds via `ExecStartPre=pnpm build`) |
+| `diksuchi-web.service` | simple | Next.js frontend on port 3000 (runs `prisma migrate deploy` via `ExecStartPre`) |
 
 ## Install on a fresh machine
 
