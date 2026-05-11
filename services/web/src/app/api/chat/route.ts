@@ -45,7 +45,9 @@ INSTRUCTIONS:
 1. Clearly state that no matching documentation was found for the query.
 2. Suggest how the user might refine their question (e.g. different terminology, broader/narrower scope, specific equipment name or part number).
 3. Do NOT guess, fabricate, or provide information from general knowledge. Only information from the retrieved documentation is trustworthy for defence equipment work.
-4. Respond in **${langName}** — the user's selected conversation language.`;
+4. Respond in **${langName}** — the user's selected conversation language.
+
+/no_think`;
   }
 
   const sectionBlocks = sections.map((sec, i) => {
@@ -148,7 +150,12 @@ When including an image, use the provided description to introduce it naturally 
 **Each image must appear AT MOST ONCE in your response.** If you need to refer to the same figure again later in the answer, mention it by its caption only (e.g. "as shown in **${imageRefs.length > 0 ? "Figure 3-1" : "the figure"}** above") and do NOT repeat the \`![](...)\` markdown. Never emit the same image URL more than once, even when describing it from a different angle or in a different section of your answer.`;
   }
 
-  return prompt;
+  // Qwen 3 / 3.5 enables chain-of-thought by default and wraps reasoning in
+  // <think>…</think> blocks, which we don't render and which slow inference
+  // significantly. The `/no_think` directive in the system message tells
+  // Qwen's chat template to skip the thinking phase and go straight to the
+  // answer. Non-Qwen models treat it as a stray phrase and ignore it.
+  return prompt + "\n\n/no_think";
 }
 
 function extractTextContent(parts: any[]): string {

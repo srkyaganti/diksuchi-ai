@@ -311,15 +311,16 @@ export default function ChatPage() {
       return true;
     }
   });
-  // Snapshot of the assistant text that should NOT auto-play. When the user
-  // mutes-then-unmutes TTS, this captures the currently rendered message so
-  // remounting VoiceOutput does not re-trigger summarize/synthesize for it.
-  // Only assistant messages that arrive AFTER unmute will play.
-  const ttsBaselineRef = useRef<string>("");
-  const lastAssistantTextRef = useRef<string>("");
+  // Snapshot of the assistant MESSAGE ID that should NOT auto-play. When
+  // the user mutes-then-unmutes TTS, or opens an existing chat with history,
+  // we record the id of the message already on screen. The mask compares
+  // ids (not text) so that two messages with identical content — common with
+  // temperature 0.0 — are still treated as distinct and the new one plays.
+  const ttsBaselineIdRef = useRef<string>("");
+  const lastAssistantIdRef = useRef<string>("");
   const handleTtsToggle = useCallback((next: boolean) => {
     if (next) {
-      ttsBaselineRef.current = lastAssistantTextRef.current;
+      ttsBaselineIdRef.current = lastAssistantIdRef.current;
     }
     setTtsEnabled(next);
     try {
@@ -355,7 +356,7 @@ export default function ChatPage() {
       setMessages([]);
       setMessageSources({});
       setSessionId("");
-      ttsBaselineRef.current = "";
+      ttsBaselineIdRef.current = "";
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -381,10 +382,12 @@ export default function ChatPage() {
 
       // Mark the loaded last-assistant message as already-consumed so TTS
       // does not auto-play historical content when reopening an old chat.
+      // We record the message id (not text) so a later message that happens
+      // to be byte-identical still triggers playback.
       const lastAsst = [...formattedMessages]
         .reverse()
         .find((m) => m.role === "assistant");
-      ttsBaselineRef.current = lastAsst ? extractTextContent(lastAsst.parts) : "";
+      ttsBaselineIdRef.current = lastAsst?.id ?? "";
 
       // Extract structured sources from assistant messages
       const sourcesMap: Record<string, SourceRef[]> = {};
@@ -565,11 +568,14 @@ export default function ChatPage() {
   const lastAssistantText = lastAssistantMessage?.parts
     ? extractTextContent(lastAssistantMessage.parts)
     : "";
-  lastAssistantTextRef.current = lastAssistantText;
-  // While the current last-assistant text still matches the baseline set at
-  // unmute time, hide it from VoiceOutput so autoplay does not re-fire.
+  const lastAssistantId = lastAssistantMessage?.id ?? "";
+  lastAssistantIdRef.current = lastAssistantId;
+  // If the current last-assistant MESSAGE is the one we baseline'd (load
+  // time or last unmute), hide its text from VoiceOutput so autoplay does
+  // not re-fire. Comparison is by id, so a later message with identical
+  // text still plays.
   const ttsTextForVoiceOutput =
-    lastAssistantText && lastAssistantText === ttsBaselineRef.current
+    lastAssistantId && lastAssistantId === ttsBaselineIdRef.current
       ? ""
       : lastAssistantText;
 

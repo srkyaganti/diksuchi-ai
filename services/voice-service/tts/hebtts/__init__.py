@@ -13,6 +13,7 @@ surface as clean engine-load errors instead of crashing module import.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import warnings
 from pathlib import Path
@@ -28,6 +29,36 @@ from ..speakers import LANGUAGE_SPEAKERS
 _VENDORED_ROOT = Path(__file__).resolve().parent / "_vendored"
 _DEFAULT_CHECKPOINT = Path.home() / ".cache" / "hebtts" / "checkpoint.pt"
 _HEBTTS_LANGUAGES: set[str] = {"he"}
+
+# The vendored TextTokenCollater is built from unique_words_tokens_all.k2symbols
+# which contains ONLY Hebrew letters (regular + sofit forms) plus `'` and `_`.
+# Any other character — Latin letters, digits, `[`, `]`, `>`, `:`, punctuation
+# — raises KeyError inside collation.py:101 when token2idx[token] is looked up
+# directly. The chat / summarize prompts deliberately preserve identifiers
+# like "[SECTION 1: …]" and acronyms like "CALM", "NSN", "SMTs" for the on-
+# screen rendering and for Indic Parler, both of which handle those tokens.
+# HebTTS cannot, so we strip them at the engine boundary.
+_HEBREW_LETTERS = set("אבגדהוזחטיכלמנסעפצקרשתךםןףץ")
+_HEBTTS_SAFE = _HEBREW_LETTERS | {"'", "_", " "}
+_BRACKETED_METADATA_RE = re.compile(r"\[[^\]]*\]")
+
+
+def _sanitize_for_hebtts(text: str) -> str:
+    """Strip text down to characters HebTTS's symbol table can represent.
+
+    Bracketed metadata blocks like "[SECTION 1: TEST EQUIPMENT > 2.2 …]" are
+    dropped wholesale — they are document scaffolding, not content to voice.
+    Anything else outside the Hebrew alphabet is collapsed to whitespace so
+    that the surrounding Hebrew words still tokenize correctly; the audio
+    will simply have a brief silence where a Latin acronym was. This is the
+    best we can do without engine-side transliteration.
+    """
+    # 1. Drop entire [...] blocks (citations, section refs, etc.)
+    text = _BRACKETED_METADATA_RE.sub(" ", text)
+    # 2. Keep only chars HebTTS understands; collapse everything else to space.
+    kept = [c if c in _HEBTTS_SAFE else " " for c in text]
+    # 3. Collapse runs of whitespace.
+    return " ".join("".join(kept).split())
 
 
 class HebTTSEngine(TTSEngine):
@@ -219,12 +250,22 @@ class HebTTSEngine(TTSEngine):
             )
         audio_prompts, prompt_text = self._speakers[chosen]
 
+        # Strip anything outside the HebTTS symbol table (Latin letters,
+        # digits, brackets, punctuation). Without this the downstream
+        # TextTokenCollater raises KeyError on the first non-Hebrew char.
+        sanitized = _sanitize_for_hebtts(text)
+        if not sanitized:
+            raise ValueError(
+                "After stripping non-Hebrew characters, no speakable content "
+                "remained. HebTTS can only synthesize Hebrew script."
+            )
+
         # Re-import the module-level helper from the vendored package; we
         # need it both at load time (for caching) and per-request (here)
         # because ``replace_chars`` is part of the same vendored module.
         from valle.data.hebrew_root_tokenizer import replace_chars  # type: ignore
 
-        full_text = [replace_chars(f"{prompt_text} {text}").strip().replace(" ", "_")]
+        full_text = [replace_chars(f"{prompt_text} {sanitized}").strip().replace(" ", "_")]
         prompt_only = [replace_chars(prompt_text).strip().replace(" ", "_")]
 
         tokens = self._alef_bert_tokenizer._tokenize(full_text)

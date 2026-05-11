@@ -120,7 +120,7 @@ Expected output:
 ```json
 {
   "models": [
-    {"name": "gemma4:e4b", "size": 5000000000, ...}
+    {"name": "gemma4:e4b", "size": 9608350718, ...}
   ]
 }
 ```

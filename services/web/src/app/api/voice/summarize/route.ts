@@ -36,7 +36,9 @@ CONTENT RULES:
 
 OUTPUT FORMAT:
 Return ONLY a valid JSON array of sentence strings, each ending with proper punctuation. No other text, no code fences, no commentary.
-Example: ["First sentence.", "Second sentence.", "Third sentence."]`;
+Example: ["First sentence.", "Second sentence.", "Third sentence."]
+
+/no_think`;
 }
 
 // Splits any sentence longer than MAX_SENTENCE_CHARS into smaller pieces,
