@@ -144,10 +144,14 @@ export function FileUploadDialog({ collectionId }: FileUploadDialogProps) {
   };
 
   const handleOpenChange = (next: boolean) => {
-    if (!next && (phase === "uploading" || phase === "processing")) {
-      // Allow dismiss but stop polling
-      stopPolling();
-      resetState();
+    if (!next) {
+      if (phase === "uploading" || phase === "processing") {
+        stopPolling();
+        resetState();
+      }
+      if (phase !== "idle") {
+        router.refresh();
+      }
     }
     setOpen(next);
   };

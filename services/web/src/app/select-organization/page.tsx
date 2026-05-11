@@ -83,7 +83,7 @@ export default async function SelectOrganizationPage({
         <h1 className="text-3xl font-bold">Select Organization</h1>
         {user.isSuperAdmin && <CreateOrganizationDialog />}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 items-start">
         {organizations.map((org) => (
           <OrganizationCard
             key={org.id}
