@@ -12,6 +12,10 @@ import {
 import { Mic, StopCircle, CheckCircle, XCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 
+// Languages we can do an end-to-end voice round-trip on: the intersection of
+// STT (Whisper large-v3, ~100 langs) and TTS (Indic Parler + HebTTS, see
+// services/voice-service/tts/registry.py). TTS-only codes (brx, hne, doi,
+// mni, or) are excluded because Whisper has no token for them.
 const SUPPORTED_LANGUAGES = [
   { code: "en", name: "English" },
   { code: "hi", name: "Hindi" },
@@ -23,6 +27,9 @@ const SUPPORTED_LANGUAGES = [
   { code: "kn", name: "Kannada" },
   { code: "ml", name: "Malayalam" },
   { code: "pa", name: "Punjabi" },
+  { code: "as", name: "Assamese" },
+  { code: "ne", name: "Nepali" },
+  { code: "sa", name: "Sanskrit" },
   { code: "he", name: "Hebrew" },
 ] as const;
 
