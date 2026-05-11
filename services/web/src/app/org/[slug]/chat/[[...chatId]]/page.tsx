@@ -60,7 +60,7 @@ import { CollectionFilesPanel } from "@/components/chat/collection-files-panel";
 import { VoiceInput } from "@/components/chat/voice-input";
 import { VoiceOutput } from "@/components/chat/voice-output";
 import { toast } from "sonner";
-import { CopyIcon, ZoomInIcon, ZoomOutIcon, FileTextIcon, ExternalLinkIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
+import { CopyIcon, ZoomInIcon, ZoomOutIcon, FileTextIcon, ExternalLinkIcon, Volume2Icon, VolumeXIcon, LanguagesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SourceRef {
@@ -143,6 +143,10 @@ function ChatInput({
   collectionFileCount,
   status,
   languageCode,
+  selectedLanguage,
+  onLanguageChange,
+  replyInSelectedLang,
+  onReplyInSelectedLangToggle,
   lastAssistantText,
   ttsEnabled,
   onTtsToggle,
@@ -153,6 +157,10 @@ function ChatInput({
   collectionFileCount: number;
   status: ChatStatus;
   languageCode: string;
+  selectedLanguage: string;
+  onLanguageChange: (code: string) => void;
+  replyInSelectedLang: boolean;
+  onReplyInSelectedLangToggle: (next: boolean) => void;
   lastAssistantText: string;
   ttsEnabled: boolean;
   onTtsToggle: (next: boolean) => void;
@@ -203,7 +211,26 @@ function ChatInput({
             <VoiceInput
               onTranscribed={handleVoiceTranscribed}
               isDisabled={!collectionId || status === "streaming"}
+              selectedLanguage={selectedLanguage}
+              onLanguageChange={onLanguageChange}
             />
+            <Button
+              type="button"
+              size="sm"
+              variant={replyInSelectedLang ? "default" : "outline"}
+              onClick={() => onReplyInSelectedLangToggle(!replyInSelectedLang)}
+              aria-pressed={replyInSelectedLang}
+              title={
+                replyInSelectedLang
+                  ? `Replies in ${selectedLanguage.toUpperCase()} — click to switch to English`
+                  : "Replies in English — click to use selected language"
+              }
+            >
+              <LanguagesIcon className="w-4 h-4" />
+              <span className="text-xs font-semibold">
+                {replyInSelectedLang ? selectedLanguage.toUpperCase() : "EN"}
+              </span>
+            </Button>
             <Button
               type="button"
               size="sm"
@@ -248,7 +275,29 @@ export default function ChatPage() {
   const [collectionName, setCollectionName] = useState<string>("");
   const [collectionFileCount, setCollectionFileCount] = useState<number>(0);
   const [sessionId, setSessionId] = useState<string>("");
-  const [languageCode, setLanguageCode] = useState<string>("en");
+  // The dropdown selection in VoiceInput — used as the STT language hint and,
+  // when `replyInSelectedLang` is on, also the language the LLM is asked to
+  // respond in and the language TTS plays back.
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
+  // When true, the LLM and TTS both use `selectedLanguage`. When false, both
+  // use English. Lets the customer toggle between native and English replies.
+  const [replyInSelectedLang, setReplyInSelectedLang] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("chat.replyInSelectedLang") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const handleReplyInSelectedLangToggle = useCallback((next: boolean) => {
+    setReplyInSelectedLang(next);
+    try {
+      window.localStorage.setItem("chat.replyInSelectedLang", String(next));
+    } catch {
+      // localStorage unavailable — keep in-memory only.
+    }
+  }, []);
+  const responseLanguage = replyInSelectedLang ? selectedLanguage : "en";
   const [loading, setLoading] = useState(true);
   const [messageSources, setMessageSources] = useState<Record<string, SourceRef[]>>({});
   // TTS preference: persisted in localStorage so the user can turn off
@@ -424,7 +473,6 @@ export default function ChatPage() {
 
   const handleVoiceTranscribed = ({
     text,
-    languageCode,
     setInput,
   }: {
     text: string;
@@ -435,8 +483,9 @@ export default function ChatPage() {
       toast.error("Please select a collection first");
       return;
     }
-
-    setLanguageCode(languageCode);
+    // The dropdown (selectedLanguage) is the source of truth — we ignore the
+    // language code that STT echoes back so a low-confidence detection cannot
+    // silently override the user's explicit selection.
     setInput(text);
     toast.success("Transcription complete - review and edit before sending");
   };
@@ -489,6 +538,7 @@ export default function ChatPage() {
         body: {
           collectionId,
           sessionId: currentSessionId,
+          languageCode: responseLanguage,
         },
       }
     );
@@ -738,7 +788,11 @@ export default function ChatPage() {
             collectionId={collectionId}
             collectionFileCount={collectionFileCount}
             status={status}
-            languageCode={languageCode}
+            languageCode={selectedLanguage}
+            selectedLanguage={selectedLanguage}
+            onLanguageChange={setSelectedLanguage}
+            replyInSelectedLang={replyInSelectedLang}
+            onReplyInSelectedLangToggle={handleReplyInSelectedLangToggle}
             lastAssistantText={ttsTextForVoiceOutput}
             ttsEnabled={ttsEnabled}
             onTtsToggle={handleTtsToggle}

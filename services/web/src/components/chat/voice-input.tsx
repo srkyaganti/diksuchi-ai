@@ -41,14 +41,20 @@ interface OnTranscribedProps {
 interface VoiceInputProps {
   onTranscribed: (input: OnTranscribedProps) => void;
   isDisabled?: boolean;
+  selectedLanguage: string;
+  onLanguageChange: (code: string) => void;
 }
 
-export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
+export function VoiceInput({
+  onTranscribed,
+  isDisabled,
+  selectedLanguage,
+  onLanguageChange,
+}: VoiceInputProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -199,7 +205,7 @@ export function VoiceInput({ onTranscribed, isDisabled }: VoiceInputProps) {
           <>
             <Select
               value={selectedLanguage}
-              onValueChange={setSelectedLanguage}
+              onValueChange={onLanguageChange}
               disabled={isDisabled || isProcessing}
             >
               <SelectTrigger size="sm" className="w-[130px]">

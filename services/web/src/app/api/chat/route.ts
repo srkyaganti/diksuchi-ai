@@ -11,6 +11,7 @@ import {
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { retrieveDocuments } from "@/lib/python-client";
 import type { SectionResult } from "@/lib/python-client";
+import { LANGUAGE_NAMES, IDENTIFIER_PRESERVATION_RULES } from "@/lib/languages";
 import type { UIMessage } from "ai";
 import { nanoid } from "nanoid";
 
@@ -21,6 +22,7 @@ interface ChatRequestBody {
   messages: UIMessage[];
   collectionId: string;
   sessionId?: string;
+  languageCode?: string;
 }
 
 /**
@@ -31,7 +33,9 @@ interface ChatRequestBody {
 function buildSystemPrompt(
   sections: SectionResult[],
   uuidToFileId: Record<string, string> = {},
+  languageCode: string = "en",
 ): string {
+  const langName = LANGUAGE_NAMES[languageCode] || "English";
   if (sections.length === 0) {
     return `You are a senior technical publications specialist with deep expertise in defence equipment documentation following S1000D standards. Your users are defence personnel — technicians, engineers, and officers — who rely on your answers to perform actual maintenance, repair, troubleshooting, and operational tasks on equipment.
 
@@ -40,7 +44,8 @@ No relevant sections were found in the knowledge base for this query.
 INSTRUCTIONS:
 1. Clearly state that no matching documentation was found for the query.
 2. Suggest how the user might refine their question (e.g. different terminology, broader/narrower scope, specific equipment name or part number).
-3. Do NOT guess, fabricate, or provide information from general knowledge. Only information from the retrieved documentation is trustworthy for defence equipment work.`;
+3. Do NOT guess, fabricate, or provide information from general knowledge. Only information from the retrieved documentation is trustworthy for defence equipment work.
+4. Respond in **${langName}** — the user's selected conversation language.`;
   }
 
   const sectionBlocks = sections.map((sec, i) => {
@@ -123,9 +128,12 @@ Detect the nature of the user's question and structure accordingly:
 - If the retrieved information is insufficient to answer the question, say so clearly and suggest what documentation the user might need.
 
 ## 6. LANGUAGE
-- Respond in the same language the user writes in.
+- Respond in **${langName}**. This is the user's selected conversation language and overrides the language of the input message.
+- Use natural, idiomatic phrasing in ${langName}; do not produce a mechanical word-for-word translation.
 - Use clear, direct technical language. Prefer active voice.
-- Use standard technical terminology consistent with the source material.`;
+- Use standard technical terminology consistent with the source material, in ${langName} where a native technical term exists.
+
+${IDENTIFIER_PRESERVATION_RULES}`;
 
   if (imageRefs.length > 0) {
     prompt += `
@@ -170,7 +178,7 @@ export async function POST(request: NextRequest) {
       baseURL: llmServiceUrl,
     });
 
-    const { messages, collectionId, sessionId } =
+    const { messages, collectionId, sessionId, languageCode } =
       (await request.json()) as ChatRequestBody;
 
     if (!messages || !collectionId) {
@@ -276,7 +284,7 @@ export async function POST(request: NextRequest) {
       for (const f of files) uuidToFileId[f.uuid] = f.id;
     }
 
-    const systemPrompt = buildSystemPrompt(sections, uuidToFileId);
+    const systemPrompt = buildSystemPrompt(sections, uuidToFileId, languageCode);
 
     // Build structured source references with page numbers
     const sources = sections.map((s) => ({

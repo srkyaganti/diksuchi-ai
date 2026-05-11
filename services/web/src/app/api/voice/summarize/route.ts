@@ -2,28 +2,94 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
+import { languageName, IDENTIFIER_PRESERVATION_RULES } from "@/lib/languages";
 
-const SUMMARIZE_PROMPT = `You are preparing text for voice transcription. Your task is to convert the input text into clear, natural-sounding sentences suitable for text-to-speech.
+// Hard cap any single sentence we return to the synthesizer. Indic Parler /
+// HebTTS quality degrades on long inputs, so we split anything over this.
+const MAX_SENTENCE_CHARS = 180;
+const LLM_TIMEOUT_MS = 120_000;
 
-RULES:
-1. Break down complex content into short to medium-length sentences (15-25 words each)
-2. For TABLES: Describe them naturally. Example: "The table shows 3 rows comparing X, Y, and Z values. Row 1 shows..."
-3. For CODE BLOCKS: Summarize what the code does. Example: "Here's a code example that demonstrates how to..."
-4. For IMAGES/FIGURES: Describe what they show. Example: "The diagram illustrates..."
-5. For BULLET POINTS: Convert to natural sentences. Example: "There are three main points. First,... Second,..."
-6. For HEADERS: Just read them as transitions. Example: "Moving to the section about..."
-7. Remove all markdown formatting (bold, italic, links, etc.)
-8. Maintain factual accuracy - do not add or remove information
-9. Keep technical terms and proper nouns
-10. Add natural pauses by splitting long sentences
+function buildSummarizePrompt(languageCode: string | undefined): string {
+  const langName = languageName(languageCode);
+  return `You are preparing text for voice synthesis (text-to-speech). Convert the input into clear, natural-sounding sentences ready to be spoken aloud.
+
+LANGUAGE (STRICT):
+- ALL output sentences MUST be in **${langName}**.
+- If the input is in a different language, TRANSLATE it into ${langName} while preserving meaning.
+- Do NOT mix languages in a single sentence except for the identifiers listed in the IDENTIFIERS section below.
+
+${IDENTIFIER_PRESERVATION_RULES}
+
+LENGTH (STRICT):
+- Target 8-15 words per sentence.
+- Hard maximum: 20 words OR 180 characters, whichever comes first.
+- If a thought needs more, split it into multiple sentences.
+
+CONTENT RULES:
+1. Tables → describe naturally, e.g. "The table compares three values across rows."
+2. Code blocks → summarize what they do; do not read code verbatim.
+3. Images/figures → describe what they show.
+4. Bullet points → flowing sentences ("First… Second… Third…").
+5. Headers → read as short transitions.
+6. Remove all markdown formatting (bold, italic, links, headings).
+7. Preserve factual content; do not add or omit information.
 
 OUTPUT FORMAT:
-Return ONLY a JSON array of sentences. Each sentence should end with proper punctuation.
-Example: ["First sentence.", "Second sentence.", "Third sentence."]
+Return ONLY a valid JSON array of sentence strings, each ending with proper punctuation. No other text, no code fences, no commentary.
+Example: ["First sentence.", "Second sentence.", "Third sentence."]`;
+}
 
-IMPORTANT: Return ONLY valid JSON array, no other text.`;
+// Splits any sentence longer than MAX_SENTENCE_CHARS into smaller pieces,
+// first preferring internal-clause boundaries, then falling back to word
+// boundaries so the synthesizer never receives an overlong chunk.
+function ensureMaxSentenceLength(sentences: string[]): string[] {
+  const out: string[] = [];
 
-const LLM_TIMEOUT_MS = 120_000;
+  const hardSplitByWords = (s: string): string[] => {
+    const words = s.split(/\s+/).filter(Boolean);
+    const chunks: string[] = [];
+    let cur = "";
+    for (const w of words) {
+      const candidate = cur ? `${cur} ${w}` : w;
+      if (candidate.length > MAX_SENTENCE_CHARS && cur) {
+        chunks.push(cur);
+        cur = w;
+      } else {
+        cur = candidate;
+      }
+    }
+    if (cur) chunks.push(cur);
+    return chunks;
+  };
+
+  for (const sentence of sentences) {
+    if (sentence.length <= MAX_SENTENCE_CHARS) {
+      out.push(sentence);
+      continue;
+    }
+    // Pass 1: greedy pack on internal-clause boundaries
+    const clauses = sentence.split(/(?<=[,;:—–])\s+/);
+    let buf = "";
+    const merged: string[] = [];
+    for (const c of clauses) {
+      const candidate = buf ? `${buf} ${c}` : c;
+      if (candidate.length <= MAX_SENTENCE_CHARS) {
+        buf = candidate;
+      } else {
+        if (buf) merged.push(buf);
+        buf = c;
+      }
+    }
+    if (buf) merged.push(buf);
+
+    // Pass 2: any clause still over the cap gets word-split
+    for (const m of merged) {
+      if (m.length <= MAX_SENTENCE_CHARS) out.push(m);
+      else out.push(...hardSplitByWords(m));
+    }
+  }
+  return out;
+}
 
 export async function POST(request: NextRequest) {
   const requestId = crypto.randomUUID().slice(0, 8);
@@ -74,7 +140,7 @@ export async function POST(request: NextRequest) {
 
     const { text: responseText } = await generateText({
       model: llmService(modelName),
-      system: SUMMARIZE_PROMPT,
+      system: buildSummarizePrompt(languageCode),
       prompt: text,
       temperature: 0.3,
       abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
@@ -107,7 +173,17 @@ export async function POST(request: NextRequest) {
     }
 
     if (sentences.length === 0) {
-      sentences = [text.substring(0, 200)];
+      sentences = [text.substring(0, MAX_SENTENCE_CHARS)];
+    }
+
+    // Safety net: even with the prompt's length rule, small LLMs sometimes
+    // emit overlong sentences. Split anything still over the cap.
+    const beforeSplit = sentences.length;
+    sentences = ensureMaxSentenceLength(sentences);
+    if (sentences.length !== beforeSplit) {
+      console.log(
+        `[${requestId}] [SUMMARIZE] length-cap split: ${beforeSplit} → ${sentences.length} sentences`,
+      );
     }
 
     const totalDuration = Date.now() - startTime;
