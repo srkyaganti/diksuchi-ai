@@ -60,7 +60,8 @@ import { CollectionFilesPanel } from "@/components/chat/collection-files-panel";
 import { VoiceInput } from "@/components/chat/voice-input";
 import { VoiceOutput } from "@/components/chat/voice-output";
 import { toast } from "sonner";
-import { CopyIcon, ZoomInIcon, ZoomOutIcon, FileTextIcon, ExternalLinkIcon } from "lucide-react";
+import { CopyIcon, ZoomInIcon, ZoomOutIcon, FileTextIcon, ExternalLinkIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface SourceRef {
   fileId: string | null;
@@ -143,6 +144,8 @@ function ChatInput({
   status,
   languageCode,
   lastAssistantText,
+  ttsEnabled,
+  onTtsToggle,
   onSubmit,
   onVoiceTranscribed,
 }: {
@@ -151,6 +154,8 @@ function ChatInput({
   status: ChatStatus;
   languageCode: string;
   lastAssistantText: string;
+  ttsEnabled: boolean;
+  onTtsToggle: (next: boolean) => void;
   onSubmit: (message: PromptInputMessage) => void;
   onVoiceTranscribed: (input: { text: string; languageCode: string; setInput: (value: string) => void }) => void;
 }) {
@@ -199,12 +204,28 @@ function ChatInput({
               onTranscribed={handleVoiceTranscribed}
               isDisabled={!collectionId || status === "streaming"}
             />
-            <VoiceOutput
-              text={lastAssistantText}
-              languageCode={languageCode}
-              isDisabled={status !== "ready"}
-              autoPlay={true}
-            />
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => onTtsToggle(!ttsEnabled)}
+              aria-pressed={ttsEnabled}
+              title={ttsEnabled ? "Voice output: on (click to mute)" : "Voice output: off (click to enable)"}
+            >
+              {ttsEnabled ? (
+                <Volume2Icon className="w-4 h-4" />
+              ) : (
+                <VolumeXIcon className="w-4 h-4 text-muted-foreground" />
+              )}
+            </Button>
+            {ttsEnabled && (
+              <VoiceOutput
+                text={lastAssistantText}
+                languageCode={languageCode}
+                isDisabled={status !== "ready"}
+                autoPlay={true}
+              />
+            )}
           </PromptInputTools>
 
           <PromptInputSubmit
@@ -230,6 +251,34 @@ export default function ChatPage() {
   const [languageCode, setLanguageCode] = useState<string>("en");
   const [loading, setLoading] = useState(true);
   const [messageSources, setMessageSources] = useState<Record<string, SourceRef[]>>({});
+  // TTS preference: persisted in localStorage so the user can turn off
+  // voice-output API calls and have it stick across reloads.
+  const [ttsEnabled, setTtsEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const v = window.localStorage.getItem("chat.tts.enabled");
+      return v === null ? true : v === "true";
+    } catch {
+      return true;
+    }
+  });
+  // Snapshot of the assistant text that should NOT auto-play. When the user
+  // mutes-then-unmutes TTS, this captures the currently rendered message so
+  // remounting VoiceOutput does not re-trigger summarize/synthesize for it.
+  // Only assistant messages that arrive AFTER unmute will play.
+  const ttsBaselineRef = useRef<string>("");
+  const lastAssistantTextRef = useRef<string>("");
+  const handleTtsToggle = useCallback((next: boolean) => {
+    if (next) {
+      ttsBaselineRef.current = lastAssistantTextRef.current;
+    }
+    setTtsEnabled(next);
+    try {
+      window.localStorage.setItem("chat.tts.enabled", String(next));
+    } catch {
+      // localStorage unavailable (private mode, etc.) — keep in-memory only.
+    }
+  }, []);
   const justCreatedSessionRef = useRef(false);
   const sessionIdRef = useRef<string>(sessionId);
   sessionIdRef.current = sessionId;
@@ -257,6 +306,7 @@ export default function ChatPage() {
       setMessages([]);
       setMessageSources({});
       setSessionId("");
+      ttsBaselineRef.current = "";
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -279,6 +329,13 @@ export default function ChatPage() {
         })
       );
       setMessages(formattedMessages);
+
+      // Mark the loaded last-assistant message as already-consumed so TTS
+      // does not auto-play historical content when reopening an old chat.
+      const lastAsst = [...formattedMessages]
+        .reverse()
+        .find((m) => m.role === "assistant");
+      ttsBaselineRef.current = lastAsst ? extractTextContent(lastAsst.parts) : "";
 
       // Extract structured sources from assistant messages
       const sourcesMap: Record<string, SourceRef[]> = {};
@@ -458,6 +515,13 @@ export default function ChatPage() {
   const lastAssistantText = lastAssistantMessage?.parts
     ? extractTextContent(lastAssistantMessage.parts)
     : "";
+  lastAssistantTextRef.current = lastAssistantText;
+  // While the current last-assistant text still matches the baseline set at
+  // unmute time, hide it from VoiceOutput so autoplay does not re-fire.
+  const ttsTextForVoiceOutput =
+    lastAssistantText && lastAssistantText === ttsBaselineRef.current
+      ? ""
+      : lastAssistantText;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)]">
@@ -675,7 +739,9 @@ export default function ChatPage() {
             collectionFileCount={collectionFileCount}
             status={status}
             languageCode={languageCode}
-            lastAssistantText={lastAssistantText}
+            lastAssistantText={ttsTextForVoiceOutput}
+            ttsEnabled={ttsEnabled}
+            onTtsToggle={handleTtsToggle}
             onSubmit={handleSubmit}
             onVoiceTranscribed={handleVoiceTranscribed}
           />
