@@ -219,6 +219,7 @@ async def stt_transcribe(
     file: UploadFile = File(...),
     vad_filter: bool = STT_VAD_FILTER,
     language: str | None = None,
+    task: str = "transcribe",
 ):
     """
     Transcribe a single audio file.
@@ -229,9 +230,17 @@ async def stt_transcribe(
         file: Audio file to transcribe
         vad_filter: Enable voice activity detection filter
         language: Optional ISO 639-1 language code (e.g., 'en', 'hi') to skip auto-detection
+        task: "transcribe" (output spoken language) or "translate" (output English).
+              Whisper's translate task only supports target=English.
     """
     if stt_model is None:
         raise HTTPException(status_code=503, detail="STT model not loaded")
+
+    if task not in ("transcribe", "translate"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid task '{task}'. Must be 'transcribe' or 'translate'.",
+        )
 
     try:
         file_bytes = await file.read()
@@ -241,6 +250,7 @@ async def stt_transcribe(
             "audio": audio,
             "beam_size": 5,
             "vad_filter": vad_filter,
+            "task": task,
         }
         if language:
             transcribe_kwargs["language"] = language
@@ -258,6 +268,7 @@ async def stt_transcribe(
         return {
             "language": info.language,
             "language_probability": info.language_probability,
+            "task": task,
             "text": " ".join(full_text),
             "segments": segments_out,
         }

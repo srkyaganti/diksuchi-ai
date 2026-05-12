@@ -29,9 +29,19 @@ export async function POST(request: NextRequest) {
     const whisperFormData = new FormData();
     whisperFormData.append("file", audioBlob, "audio.wav");
 
+    // Whisper's translate task always outputs English. We use it whenever the
+    // source language is non-English so the chat input lands in English,
+    // which is what RAG retrieval (English embeddings, BM25, reranker) needs.
+    // English speech uses plain transcribe (translate would be a no-op).
+    const task =
+      inputLanguageCode && inputLanguageCode.toLowerCase() !== "en"
+        ? "translate"
+        : "transcribe";
+
     // Build URL with query params
     const whisperUrl = new URL(`${VOICE_SERVICE_URL}/stt/transcribe`);
     whisperUrl.searchParams.set("vad_filter", "false");
+    whisperUrl.searchParams.set("task", task);
     if (inputLanguageCode) {
       whisperUrl.searchParams.set("language", inputLanguageCode);
     }
@@ -41,6 +51,7 @@ export async function POST(request: NextRequest) {
       blobSize: audioBlob.size,
       blobType: audioBlob.type,
       languageCode: inputLanguageCode || "auto-detect",
+      task,
     });
 
     // Send to Voice Service
