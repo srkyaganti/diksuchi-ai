@@ -694,13 +694,19 @@ export default function ChatPage() {
                               part.url?.includes("/api/files/") &&
                               part.url?.includes("/images/");
                             if (isDocImage) {
-                              return (
-                                <DocumentImage
-                                  key={`${message.id}-docimg-${i}`}
-                                  src={part.url!}
-                                  alt={part.filename || "Document image"}
-                                />
-                              );
+                              // Flow B disabled: skip rendering trailing RAG
+                              // image file parts so only LLM-emitted inline
+                              // markdown images appear in the response.
+                              // To re-enable, uncomment the block below and
+                              // remove this `return null;`.
+                              return null;
+                              // return (
+                              //   <DocumentImage
+                              //     key={`${message.id}-docimg-${i}`}
+                              //     src={part.url!}
+                              //     alt={part.filename || "Document image"}
+                              //   />
+                              // );
                             }
                             return (
                               <MessageAttachment
