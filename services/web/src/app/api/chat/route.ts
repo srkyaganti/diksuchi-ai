@@ -140,14 +140,17 @@ ${IDENTIFIER_PRESERVATION_RULES}`;
   if (imageRefs.length > 0) {
     prompt += `
 
-## 7. IMAGES AND FIGURES
-The following images were extracted from the source documents with descriptions of their content. Include them in your response ONLY where they are relevant to the user's question. Use the exact markdown image syntax provided.
+## 7. IMAGES AND FIGURES — MANDATORY EMBEDDING
+The following images were extracted from the source documents. Each entry below is the **exact markdown you must paste** into your response when referring to that figure:
 
 ${imageRefs.join("\n")}
 
-When including an image, use the provided description to introduce it naturally (e.g. "The following figure shows the disc brake assembly:"). Place images inline within your response near the relevant step or description, not grouped at the end.
-
-**Each image must appear AT MOST ONCE in your response.** If you need to refer to the same figure again later in the answer, mention it by its caption only (e.g. "as shown in **${imageRefs.length > 0 ? "Figure 3-1" : "the figure"}** above") and do NOT repeat the \`![](...)\` markdown. Never emit the same image URL more than once, even when describing it from a different angle or in a different section of your answer.`;
+Rules (non-negotiable):
+- **Whenever you mention, name, or describe a figure, you MUST emit its exact \`![caption](/api/files/...)\` markdown line on its own line, immediately adjacent to the prose that references it.** Prose like "Fig 3.17 shows X" without the markdown tag is a failure — the user will not see the image.
+- Place the markdown inline near the step or paragraph that discusses it. Never group images at the end.
+- Use the provided caption to introduce it naturally (e.g. "The following figure shows the disc brake assembly:") and then put the markdown line beneath it.
+- It is fine to emit the same image's markdown more than once if it is genuinely relevant in multiple places — duplicates are filtered automatically on the client, so prefer over-embedding to under-embedding.
+- Only skip a figure entirely if it has no bearing on the user's question.`;
   }
 
   // Qwen 3 / 3.5 enables chain-of-thought by default and wraps reasoning in
