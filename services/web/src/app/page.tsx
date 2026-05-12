@@ -12,9 +12,7 @@ import { DocumentIntelligenceSection } from "@/components/landing/document-intel
 import { SecuritySection } from "@/components/landing/security-section";
 import { SpeedSection } from "@/components/landing/speed-section";
 import { TimelineSteps } from "@/components/landing/timeline-steps";
-import { PlatformDemo } from "@/components/landing/platform-demo";
 import { AudienceSplit } from "@/components/landing/audience-split";
-import { TechnologyTrust } from "@/components/landing/technology-trust";
 import { CTASection } from "@/components/landing/cta-section";
 import { Footer } from "@/components/landing/footer";
 
@@ -60,14 +58,8 @@ export default function Home() {
       {/* How It Works */}
       <TimelineSteps />
 
-      {/* Platform Demo */}
-      <PlatformDemo />
-
       {/* Audience Split */}
       <AudienceSplit />
-
-      {/* Technology Trust */}
-      <TechnologyTrust />
 
       {/* Final CTA */}
       <CTASection isAuthenticated={isAuthenticated} onGetStarted={handleGetStarted} />

@@ -25,7 +25,7 @@ function LanguageBadgesVisual() {
 
       {/* Floating Language Badges */}
       <div className="relative grid grid-cols-3 gap-3 md:gap-4">
-        {voice.languages.slice(0, 9).map((lang, index) => (
+        {voice.languages.map((lang, index) => (
           <Badge
             key={lang}
             variant="outline"
@@ -38,13 +38,6 @@ function LanguageBadgesVisual() {
             {lang}
           </Badge>
         ))}
-      </div>
-
-      {/* More languages indicator */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-        <Badge variant="secondary" className="text-xs">
-          +6 more languages
-        </Badge>
       </div>
 
       <style jsx>{`

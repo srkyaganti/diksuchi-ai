@@ -6,7 +6,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Diksuchi AI | AVision Systems",
   description:
-    "Transform how defence forces and contractors access critical documentation. Voice-enabled, AI-powered document intelligence in 18+ Indian languages.",
+    "Transform how defence forces and contractors access critical documentation. Voice-enabled, AI-powered document intelligence in 14 languages.",
   openGraph: {
     title: "Diksuchi AI | AVision Systems",
     description:

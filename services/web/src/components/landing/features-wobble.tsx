@@ -17,10 +17,10 @@ export function FeaturesWobble() {
             Speak Your Mission, Get Instant Intelligence
           </h2>
           <p className="mt-4 text-left text-base/6 text-gray-100">
-            Ask questions in Hindi, Tamil, Bengali, or any of 18+ Indian languages. Diksuchi understands you—and responds in your language.
+            Ask questions in Hindi, Tamil, Bengali, or any of 14 supported languages. Diksuchi understands you—and responds in your language.
           </p>
           <div className="mt-6 flex gap-2">
-            <span className="inline-block px-3 py-1 bg-white/20 rounded-full text-xs text-white font-medium">18+ Languages</span>
+            <span className="inline-block px-3 py-1 bg-white/20 rounded-full text-xs text-white font-medium">14 Languages</span>
             <span className="inline-block px-3 py-1 bg-white/20 rounded-full text-xs text-white font-medium">Hands-free</span>
           </div>
         </div>

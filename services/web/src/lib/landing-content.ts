@@ -7,7 +7,7 @@ export const landingContent = {
   metadata: {
     title: "Diksuchi AI - Next-Generation Intelligence for Defence",
     description:
-      "Transform how defence forces and contractors access critical documentation. Voice-enabled, AI-powered document intelligence in 18+ Indian languages.",
+      "Transform how defence forces and contractors access critical documentation. Voice-enabled, AI-powered document intelligence in 14 languages.",
     openGraph: {
       title: "Diksuchi AI - Next-Generation Intelligence for Defence",
       description:
@@ -41,8 +41,8 @@ export const landingContent = {
   stats: [
     {
       icon: "Languages",
-      value: "18+",
-      label: "Indian Languages",
+      value: "14",
+      label: "Languages Supported",
     },
     {
       icon: "Shield",
@@ -63,28 +63,30 @@ export const landingContent = {
 
   voice: {
     headline: "Speak Your Mission, Get Instant Intelligence",
-    body: "Whether you're in the field or the factory floor, access critical information hands-free. Ask questions in Hindi, Tamil, Bengali, or any of 18+ Indian languages. Diksuchi understands you—and responds in your language.",
+    body: "Whether you're in the field or the factory floor, access critical information hands-free. Ask questions in Hindi, Tamil, Bengali, or any of 14 supported languages. Diksuchi understands you—and responds in your language.",
     benefits: [
       "Hands-free operation in high-pressure situations",
       "Natural conversation, not keyword searches",
-      "18+ Indian languages for truly inclusive access",
+      "14 languages for truly inclusive access",
       "Hear answers read aloud while your hands stay on your work",
     ],
     languages: [
+      "English",
       "Hindi",
+      "Bengali",
       "Tamil",
       "Telugu",
-      "Bengali",
       "Marathi",
       "Gujarati",
       "Kannada",
       "Malayalam",
       "Punjabi",
-      "Odia",
       "Assamese",
-      "English",
+      "Nepali",
+      "Sanskrit",
+      "Hebrew",
     ],
-    techHint: "Voice AI: STT + TTS in 18+ Indian Languages",
+    techHint: "Voice AI: STT + TTS in 14 Languages",
   },
 
   documentIntelligence: {
@@ -210,9 +212,9 @@ export const landingContent = {
         number: 3,
         title: "Ask Questions",
         description:
-          "Use voice or text in any of 18+ Indian languages to query your knowledge base",
+          "Use voice or text in any of 14 supported languages to query your knowledge base",
         icon: "MessageCircle",
-        badge: "18+ Languages",
+        badge: "14 Languages",
       },
       {
         number: 4,
@@ -223,14 +225,6 @@ export const landingContent = {
         badge: "With Sources",
       },
     ],
-  },
-
-  demo: {
-    headline: "See Diksuchi in Action",
-    description:
-      "Experience how Diksuchi transforms complex technical documentation into conversational intelligence.",
-    placeholderText:
-      "Demo screenshots or video coming soon. Contact us for a live demonstration.",
   },
 
   audience: {
@@ -256,29 +250,6 @@ export const landingContent = {
         "Reduced onboarding time for new engineers",
       ],
     },
-  },
-
-  technology: {
-    headline: "Powered by Battle-Tested Technology",
-    subheadline: "Open standards, proven AI, secure infrastructure",
-    badges: [
-      {
-        label: "S1000D Standard",
-        description: "Defence technical documentation standard",
-      },
-      {
-        label: "PostgreSQL",
-        description: "Enterprise-grade database",
-      },
-      {
-        label: "Whisper AI",
-        description: "OpenAI's speech recognition",
-      },
-      {
-        label: "Local AI Models",
-        description: "No cloud dependency",
-      },
-    ],
   },
 
   finalCTA: {
