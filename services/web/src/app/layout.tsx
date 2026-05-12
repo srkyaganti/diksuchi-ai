@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   title: "Diksuchi AI | AVision Systems",
   description:
     "Transform how defence forces and contractors access critical documentation. Voice-enabled, AI-powered document intelligence in 14 languages.",
+  authors: [{ name: "Navmate Private Limited", url: "https://navmate.ai" }],
+  creator: "Navmate Private Limited",
+  generator: "Navmate",
   openGraph: {
     title: "Diksuchi AI | AVision Systems",
     description:

@@ -64,15 +64,28 @@ export function Footer() {
         <Separator className="my-8" />
 
         {/* Copyright */}
-        <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-          <span>{footer.copyright}</span>
-          <Image
-            src="/make-in-india-logo.png"
-            alt="Make in India"
-            width={60}
-            height={36}
-            className="h-8 w-auto object-contain"
-          />
+        <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <span>{footer.copyright}</span>
+            <Image
+              src="/make-in-india-logo.png"
+              alt="Make in India"
+              width={60}
+              height={36}
+              className="h-8 w-auto object-contain"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground/70">
+            Designed &amp; developed by{" "}
+            <Link
+              href="https://navmate.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline-offset-4 hover:underline hover:text-foreground transition-colors"
+            >
+              Navmate
+            </Link>
+          </p>
         </div>
       </div>
     </footer>
